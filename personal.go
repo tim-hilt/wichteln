@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -36,10 +37,8 @@ func (a *app) findByPersonalLink(w http.ResponseWriter, r *http.Request) (Sessio
 		return Session{}, Participant{}, false
 	}
 	if ok {
-		for _, p := range sess.Participants {
-			if p.Hash == hash {
-				return sess, p, true
-			}
+		if p := sess.participant(hash); p != nil {
+			return sess, *p, true
 		}
 	}
 	render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": messagesFor(r)})
@@ -57,6 +56,7 @@ func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 
 // submitPersonal stores the Participant's Wish and Exclusions, marks them as
 // submitted and remembers the request's language. It can be repeated to edit.
+// Exclusions that would leave no valid Draw are rejected and nothing is saved.
 func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	sess, me, ok := a.findByPersonalLink(w, r)
 	if !ok {
@@ -82,29 +82,26 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_long_wish"]})
 		return
 	}
-	if !DrawPossible(withParticipant(sess.Participants, me)) {
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
-		return
-	}
-	me.Submitted = true
-	me.Lang = languageFor(r)
-	if _, err := a.store.SaveParticipant(me); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
-}
 
-// withParticipant returns a copy of all with the Participant of the same Hash
-// replaced by p; the original slice is left untouched.
-func withParticipant(all []Participant, p Participant) []Participant {
-	out := slices.Clone(all)
-	for i := range out {
-		if out[i].Hash == p.Hash {
-			out[i] = p
+	// The feasibility check and the save happen in one store update, so two
+	// simultaneous Submissions can't each pass the check on their own and
+	// together leave no valid Draw.
+	err := a.store.Update(sess.Hash, func(s *Session) error {
+		p := s.participant(me.Hash)
+		p.Wish, p.Exclusions, p.Submitted, p.Lang = me.Wish, me.Exclusions, true, languageFor(r)
+		if !DrawPossible(s.Participants) {
+			return ErrNoDraw
 		}
+		return nil
+	})
+	switch {
+	case errors.Is(err, ErrNoDraw):
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
+	case err != nil:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	default:
+		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
 	}
-	return out
 }
 
 // others returns the names of all Participants except me.

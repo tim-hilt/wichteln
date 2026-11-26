@@ -66,8 +66,7 @@ func TestUnknownPersonalLinkIs404InUserLanguage(t *testing.T) {
 }
 
 func TestSubmitStoresWishAndExclusionsAndMarksSubmitted(t *testing.T) {
-	dir := t.TempDir()
-	c := newClient(t, dir)
+	c := newClient(t, t.TempDir())
 	session, p := openSession(t, c)
 
 	rec := c.do("POST", p["Anna"], "de", wishForm("Socken", "Ben"))
@@ -86,11 +85,6 @@ func TestSubmitStoresWishAndExclusionsAndMarksSubmitted(t *testing.T) {
 	status := c.do("GET", session, "en", nil).Body.String()
 	if !strings.Contains(status, "submitted") {
 		t.Errorf("session page lacks submitted status:\n%s", status)
-	}
-
-	sess, _, _ := newStoreFor(t, dir).LoadByPersonalLink(strings.TrimPrefix(p["Anna"], "/"))
-	if sess.Participants[0].Lang != "de" {
-		t.Errorf("language not stored: %q", sess.Participants[0].Lang)
 	}
 }
 
@@ -211,13 +205,4 @@ func TestSubmissionSurvivesRestart(t *testing.T) {
 	if page := newClient(t, dir).do("GET", p["Anna"], "en", nil).Body.String(); !strings.Contains(page, "Socken") {
 		t.Errorf("wish lost after restart:\n%s", page)
 	}
-}
-
-func newStoreFor(t *testing.T, dir string) *Store {
-	t.Helper()
-	s, err := NewStore(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return s
 }

@@ -13,4 +13,8 @@ Spec: `.scratch/secret-santa/spec.md` · Vocabulary: `GLOSSARY.md` · Persistenc
 - [ ] After the Draw, the Personal link shows the recipient's name and Wish read-only; Wish and Exclusions can no longer be edited (POSTs are rejected)
 - [ ] A Participant never learns who gives to them
 - [ ] After the Draw, the Session page shows only "Drawn ✓" (no Wishes, Exclusions or Assignments)
-- [ ] Seam A tests: full flow from create to Draw; Draw emails satisfy the invariants (everyone gives once and receives once, no self-Assignment, Exclusions respected) and use each Participant's language; post-Draw pages and locking
+- [ ] Seam A tests: full flow from create to Draw; Draw emails satisfy the invariants (everyone gives once and receives once, no self-Assignment, Exclusions respected) and use each Participant's language from their *last* Submission (e.g. submit in EN, edit in DE → German Draw email; this is the only Seam A coverage for the language stored in 03); post-Draw pages and locking
+
+## Comments
+
+- Review of 01–05: run the Draw inside the same `Store.Update` as the Submission in `submitPersonal`, so the feasibility check, the save and the Draw are one atomic step. `DrawPossible` in `draw.go` already maps Participants (Exclusions by name) to `Draw`'s indices; share that mapping instead of duplicating it.

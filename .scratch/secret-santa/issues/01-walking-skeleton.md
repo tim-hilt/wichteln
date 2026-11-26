@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** done
 
 Spec: `.scratch/secret-santa/spec.md` · Vocabulary: `GLOSSARY.md` · Persistence: ADR-0001
 
@@ -17,3 +17,7 @@ Spec: `.scratch/secret-santa/spec.md` · Vocabulary: `GLOSSARY.md` · Persistenc
 - [x] Multi-stage Dockerfile whose final stage is `FROM scratch`; the image starts and serves the welcome page
 - [x] A GitHub Actions workflow runs `go test ./...` and builds the Docker image
 - [x] Seam A tests: the welcome page renders in DE for a German `Accept-Language` and in EN otherwise
+
+## Comments
+
+- Review: Docker was not running during the review, so the image build was not run locally. The statically linked `CGO_ENABLED=0` binary was built and served the welcome page; CI runs `docker build`.

@@ -81,13 +81,13 @@ func TestCreateRedirectsToFreshSessionLinks(t *testing.T) {
 func TestUnknownSessionShowsEmptyFormAndStoresNothing(t *testing.T) {
 	dir := t.TempDir()
 	c := newClient(t, dir)
-	rec := c.do("GET", c.createSession(), "en", nil)
+	link := c.createSession()
+	rec := c.do("GET", link, "en", nil)
 	body := rec.Body.String()
 	if rec.Code != 200 || !strings.Contains(body, "<form") || !strings.Contains(body, "Me") {
 		t.Errorf("want creation form with Me row, got %d:\n%s", rec.Code, body)
 	}
-	c2 := newClient(t, dir)
-	if rec := c2.do("GET", "/session/"+strings.Repeat("a", 26), "en", nil); !strings.Contains(rec.Body.String(), "<form") {
+	if rec := newClient(t, dir).do("GET", link, "en", nil); !strings.Contains(rec.Body.String(), "<form") {
 		t.Error("session was stored before submit")
 	}
 	if rec := c.do("GET", "/session/not-a-hash", "en", nil); rec.Code != 404 {

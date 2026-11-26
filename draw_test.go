@@ -96,6 +96,36 @@ func TestDrawImpossible(t *testing.T) {
 	}
 }
 
+// Large groups must stay fast even when no Draw exists or only few do, since
+// the feasibility check runs on every Submission.
+func TestDrawScalesToLargeGroups(t *testing.T) {
+	const n = 40
+	nobodyGivesTo0 := map[int][]int{}
+	for g := 1; g < n; g++ {
+		nobodyGivesTo0[g] = []int{0}
+	}
+	if _, err := Draw(n, nobodyGivesTo0, newRng(1)); !errors.Is(err, ErrNoDraw) {
+		t.Fatalf("got %v, want ErrNoDraw", err)
+	}
+
+	// Everyone may only give to the next one or the one after: few valid Draws.
+	tight := map[int][]int{}
+	for g := range n {
+		for r := range n {
+			if r != (g+1)%n && r != (g+2)%n {
+				tight[g] = append(tight[g], r)
+			}
+		}
+	}
+	for seed := range uint64(20) {
+		got, err := Draw(n, tight, newRng(seed))
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkInvariants(t, n, tight, got)
+	}
+}
+
 func TestDrawVaries(t *testing.T) {
 	seen := map[string]bool{}
 	for seed := range uint64(drawRuns) {

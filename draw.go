@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"math/rand/v2"
-	"slices"
 )
 
 // DrawPossible reports whether the Session's Participants, with their current
@@ -37,35 +36,86 @@ var ErrNoDraw = errors.New("no valid draw exists")
 // 0..n-1 without fixed points that respects all Exclusions. It returns
 // ErrNoDraw if none exists. Randomness comes from rng, so tests can seed it.
 //
-// It is shuffled backtracking: givers pick from a freshly shuffled candidate
-// list, so every valid result can occur (not necessarily equally likely).
+// Givers pick in turn from a freshly shuffled candidate list and keep the
+// first candidate that still leaves every later giver a distinct allowed
+// recipient (a perfect matching). So every valid result can occur (not
+// necessarily equally likely), and the Draw never backtracks: it stays
+// polynomial even for large groups or when no valid result exists, where
+// plain backtracking would take exponential time.
 func Draw(n int, excluded map[int][]int, rng *rand.Rand) ([]int, error) {
 	if n < 2 {
 		return nil, ErrNoDraw
 	}
-	recipients := make([]int, n)
-	taken := make([]bool, n)
-
-	var assign func(giver int) bool
-	assign = func(giver int) bool {
-		if giver == n {
-			return true
+	// allowed[g][r] reports whether giver g may give to recipient r.
+	allowed := make([][]bool, n)
+	for g := range allowed {
+		allowed[g] = make([]bool, n)
+		for r := range allowed[g] {
+			allowed[g][r] = r != g
 		}
+		for _, r := range excluded[g] {
+			allowed[g][r] = false
+		}
+	}
+	if !perfectMatching(allowed) {
+		return nil, ErrNoDraw
+	}
+
+	recipients := make([]int, n)
+	for g := range n {
 		for _, r := range rng.Perm(n) {
-			if taken[r] || r == giver || slices.Contains(excluded[giver], r) {
+			if !allowed[g][r] {
 				continue
 			}
-			taken[r], recipients[giver] = true, r
-			if assign(giver + 1) {
-				return true
+			if fixed := fix(allowed, g, r); perfectMatching(fixed) {
+				allowed, recipients[g] = fixed, r
+				break
 			}
-			taken[r] = false
+		}
+	}
+	return recipients, nil
+}
+
+// fix returns a copy of allowed in which g gives to r and nobody else does.
+func fix(allowed [][]bool, g, r int) [][]bool {
+	out := make([][]bool, len(allowed))
+	for i, row := range allowed {
+		out[i] = make([]bool, len(row))
+		if i == g {
+			out[i][r] = true
+			continue
+		}
+		copy(out[i], row)
+		out[i][r] = false
+	}
+	return out
+}
+
+// perfectMatching reports whether every giver can get a distinct allowed
+// recipient (Kuhn's augmenting-path algorithm, O(n³)).
+func perfectMatching(allowed [][]bool) bool {
+	n := len(allowed)
+	giverOf := make([]int, n) // recipient -> matched giver, or -1
+	for r := range giverOf {
+		giverOf[r] = -1
+	}
+	var augment func(g int, seen []bool) bool
+	augment = func(g int, seen []bool) bool {
+		for r, ok := range allowed[g] {
+			if ok && !seen[r] {
+				seen[r] = true
+				if giverOf[r] < 0 || augment(giverOf[r], seen) {
+					giverOf[r] = g
+					return true
+				}
+			}
 		}
 		return false
 	}
-
-	if !assign(0) {
-		return nil, ErrNoDraw
+	for g := range n {
+		if !augment(g, make([]bool, n)) {
+			return false
+		}
 	}
-	return recipients, nil
+	return true
 }
