@@ -101,7 +101,7 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, "/"+me.Hash+"?joined", http.StatusSeeOther)
+		http.Redirect(w, r, "/"+me.Hash+"", http.StatusSeeOther)
 	}
 }
 

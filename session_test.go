@@ -61,6 +61,15 @@ func (c *client) do(method, path, lang string, form url.Values) *httptest.Respon
 	return rec
 }
 
+// joinAs joins through the Join link, dismisses the Join confirmation (the
+// first visit of the Personal link) and returns the Personal link path.
+func (c *client) joinAs(join, lang string, form url.Values) string {
+	c.t.Helper()
+	loc := c.do("POST", join, lang, form).Header().Get("Location")
+	c.do("GET", loc, lang, nil)
+	return loc
+}
+
 // createSession drives "create" and returns the Session link path.
 func (c *client) createSession() string {
 	c.t.Helper()

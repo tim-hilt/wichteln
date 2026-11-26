@@ -1,8 +1,12 @@
 {{template "header" .}}
     {{if .Joined}}
     <h2>✅ {{printf .T.joined_title .Name}}</h2>
+    {{if .Organizer}}
+    <p class="success">{{.T.saved_text}}</p>
+    {{else}}
     <p class="success">{{.T.joined_text}}</p>
     <p>{{printf .T.joined_email_sent .Email}}</p>
+    {{end}}
     {{else}}
     <h2>{{printf .T.greeting .Name}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}

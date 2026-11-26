@@ -22,6 +22,10 @@ type personalView struct {
 	Others []otherView
 	Errors []string
 
+	// Organizer swaps the Join confirmation's text, as they didn't use the
+	// Join link and got no confirmation email.
+	Organizer bool
+
 	// Joined shows the confirmation of a Join instead of the form.
 	Joined bool
 
@@ -59,7 +63,20 @@ func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	renderPersonal(w, r, http.StatusOK, sess, me, nil, r.URL.Query().Has("joined"))
+	// The first visit after the first Submission (made when joining, or by the
+	// Organizer on the form) shows the Join confirmation, later ones the form.
+	showJoined := me.Submitted && !me.SawJoined
+	if showJoined {
+		err := a.store.Update(sess.Hash, func(s *Session) error {
+			s.participant(me.Hash).SawJoined = true
+			return nil
+		})
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+	renderPersonal(w, r, http.StatusOK, sess, me, nil, showJoined)
 }
 
 // submitPersonal stores the Participant's email, Wish and Exclusions, marks
@@ -226,7 +243,7 @@ func otherViews(sess Session, me Participant) []otherView {
 // submissionView is the submission form (submission_fields.html) for me,
 // prefilled with what me has entered so far.
 func submissionView(r *http.Request, sess Session, me Participant, errs []string) personalView {
-	return personalView{T: messagesFor(r), Name: me.Name, Email: me.Email, Wish: me.Wish, Others: otherViews(sess, me), Errors: errs}
+	return personalView{T: messagesFor(r), Name: me.Name, Email: me.Email, Wish: me.Wish, Organizer: me.Organizer, Others: otherViews(sess, me), Errors: errs}
 }
 
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string, joined bool) {

@@ -29,7 +29,9 @@ func createAnnaSession(t *testing.T, c *client, lang string) (session, join, ann
 	join = joinLinkRe.FindString(body)
 	// The Personal link is the Organizer email's last link.
 	if m := personalLinkRe.FindAllStringSubmatch(body, -1); join != "" && m != nil {
-		return session, join, "/" + m[len(m)-1][1]
+		anna = "/" + m[len(m)-1][1]
+		c.do("GET", anna, lang, nil) // dismiss the confirmation
+		return session, join, anna
 	}
 	t.Fatalf("Organizer email lacks Join or Personal link:\n%s", body)
 	return
@@ -56,7 +58,8 @@ func openSession(t *testing.T, c *client) (session string, personal map[string]s
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("join %s: status %d", n, rec.Code)
 		}
-		personal[n] = strings.TrimSuffix(rec.Header().Get("Location"), "?joined")
+		personal[n] = rec.Header().Get("Location")
+		c.do("GET", personal[n], "en", nil)
 	}
 	return session, personal
 }
@@ -124,6 +127,7 @@ func TestSubmitStoresWishAndExclusionsAndMarksSubmitted(t *testing.T) {
 		t.Fatalf("status %d, location %q", rec.Code, rec.Header().Get("Location"))
 	}
 
+	c.do("GET", p["Anna"], "en", nil) // dismiss the Join confirmation
 	page := c.do("GET", p["Anna"], "en", nil).Body.String()
 	if !strings.Contains(page, "Socken") {
 		t.Errorf("saved wish not shown:\n%s", page)
@@ -143,6 +147,7 @@ func TestEditKeepsSubmittedAndReplacesData(t *testing.T) {
 	session, _, anna := createAnnaSession(t, c, "en")
 	p := map[string]string{"Anna": anna}
 	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "Socken", "Ben"))
+	c.do("GET", p["Anna"], "en", nil) // dismiss the Join confirmation
 	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "Tee", "Cleo"))
 
 	page := c.do("GET", p["Anna"], "en", nil).Body.String()
@@ -241,7 +246,7 @@ func TestUnknownAndSelfExclusionsAreIgnored(t *testing.T) {
 func TestPrivacyOfWishesAndExclusions(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, join, anna := createAnnaSession(t, c, "en") // Cleo stays unjoined: no Draw
-	ben := strings.TrimSuffix(c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b")).Header().Get("Location"), "?joined")
+	ben := c.joinAs(join, "en", joinForm("Ben", "ben@x.de", "b"))
 	p := map[string]string{"Anna": anna, "Ben": ben}
 	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "Geheimwunsch", "Ben"))
 
@@ -259,6 +264,7 @@ func TestSubmissionSurvivesRestart(t *testing.T) {
 	_, _, anna := createAnnaSession(t, c, "en")
 	p := map[string]string{"Anna": anna}
 	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "Socken", "Ben"))
+	c.do("GET", p["Anna"], "en", nil) // dismiss the Join confirmation
 	if page := newClient(t, dir).do("GET", p["Anna"], "en", nil).Body.String(); !strings.Contains(page, "Socken") {
 		t.Errorf("wish lost after restart:\n%s", page)
 	}
@@ -334,5 +340,23 @@ func TestImplausibleEmailIsRejectedAndNothingIsSaved(t *testing.T) {
 	page := c.do("GET", p["Ben"], "en", nil).Body.String()
 	if !strings.Contains(page, "ben@x.de") || strings.Contains(page, "changed") || len(c.mailer.sent) != before {
 		t.Errorf("rejected edit had effects:\n%s", page)
+	}
+}
+
+func TestOrganizerSeesJoinConfirmationAfterFirstSubmission(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session := c.createSession()
+	c.do("POST", session, "en", threeRows)
+	m := personalLinkRe.FindAllStringSubmatch(c.mailer.sent[0].body, -1)
+	anna := "/" + m[len(m)-1][1]
+	if page := c.do("GET", anna, "en", nil).Body.String(); strings.Contains(page, "You&#39;re in") || !strings.Contains(page, "<form") {
+		t.Errorf("first visit should show the form:\n%s", page)
+	}
+	rec := c.do("POST", anna, "en", url.Values{"email": {"anna@x.de"}, "wish": {"w"}})
+	if page := c.do("GET", rec.Header().Get("Location"), "en", nil).Body.String(); !strings.Contains(page, "You&#39;re in, Anna!") || !strings.Contains(page, "You added your wishes.") || strings.Contains(page, "confirmation mail") {
+		t.Errorf("no organizer confirmation after submission:\n%s", page)
+	}
+	if page := c.do("GET", anna, "en", nil).Body.String(); !strings.Contains(page, "<form") {
+		t.Errorf("later visit lacks form:\n%s", page)
 	}
 }

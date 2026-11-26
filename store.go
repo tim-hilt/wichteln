@@ -37,6 +37,7 @@ type Participant struct {
 	Wish       string
 	Exclusions []string // names of the Participants this one must not give to
 	Submitted  bool
+	SawJoined  bool   // the Personal page showed the Join confirmation already
 	Lang       string // language of the last submission, used for the Draw email
 	Recipient  string // name of the Participant this one gives to; set by the Draw
 }

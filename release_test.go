@@ -15,7 +15,7 @@ func release(c *client, session, name string) *httptest.ResponseRecorder {
 func TestReleaseFreesNameAndInvalidatesPersonalLink(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, join := openJoinSession(t, c)
-	ben := strings.TrimSuffix(c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "w")).Header().Get("Location"), "?joined")
+	ben := c.joinAs(join, "en", joinForm("Ben", "ben@x.de", "w"))
 	before := len(c.mailer.sent)
 
 	if rec := release(c, session, "Ben"); rec.Code != http.StatusSeeOther {
