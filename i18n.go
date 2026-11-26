@@ -78,7 +78,7 @@ var catalog = map[string]Messages{
 		"open_session": "Bestehende Sitzung öffnen",
 		"open_link":    "Persönlichen Link öffnen",
 		"open_join":    "Einer Sitzung beitreten",
-		"join_hash":    "Beitrittslink oder dessen Hash",
+		"join_hash":    "Hash oder Link des Beitrittslinks",
 		"session_hash": "Sitzungs-Hash oder -Link",
 		"link_hash":    "Hash oder Link des persönlichen Links",
 		"go":           "Öffnen",
