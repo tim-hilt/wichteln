@@ -1,0 +1,14 @@
+{{define "wish_fields"}}
+      <div class="field">
+        <label for="wish">{{.T.wish}}</label>
+        <textarea id="wish" name="wish" required rows="5">{{.Wish}}</textarea>
+      </div>
+      <fieldset>
+        <legend>{{.T.exclusions}}</legend>
+        <p class="hint">{{.T.exclusions_help}}</p>
+        <div class="choices">
+          {{range .Others}}<label><input type="checkbox" name="exclude" value="{{.Name}}"{{if .Excluded}} checked{{end}}> {{.Name}}</label>
+          {{end}}
+        </div>
+      </fieldset>
+{{end}}

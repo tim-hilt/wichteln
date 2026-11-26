@@ -1,0 +1,12 @@
+{{template "header" .}}
+    {{if .Closed}}
+    <p class="error">{{.T.join_closed}}</p>
+    {{else}}
+    <h2>{{.T.join_select}}</h2>
+    {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+    <ul class="participants">
+      {{range .Names}}<li><a href="/join/{{$.Hash}}?name={{.}}">{{.}}</a></li>
+      {{end}}
+    </ul>
+    {{end}}
+{{template "footer" .}}

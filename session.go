@@ -42,10 +42,16 @@ func (a *app) session(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	case ok:
-		render(w, http.StatusOK, "session.html", map[string]any{"T": messagesFor(r), "Session": sess})
+		a.renderSession(w, r, http.StatusOK, sess, nil)
 	default:
 		renderForm(w, r, http.StatusOK, hash, []rowView{{Me: true}}, nil)
 	}
+}
+
+func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, sess Session, errs []string) {
+	render(w, status, "session.html", map[string]any{
+		"T": messagesFor(r), "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash, "Errors": errs,
+	})
 }
 
 // participantRow serves an empty row for HTMX to append to the creation form.
@@ -54,7 +60,8 @@ func (a *app) participantRow(w http.ResponseWriter, r *http.Request) {
 }
 
 // submitSession validates the creation form, stores the Session as Open and
-// emails every Participant their Personal link in the Organizer's language.
+// emails every Participant given with an email address their Personal link in
+// the Organizer's language. Names without email wait to be joined.
 func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 	hash := r.PathValue("hash")
 	if !validHash(hash) {
@@ -71,17 +78,21 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lang := languageFor(r)
-	sess := Session{Hash: hash, State: stateOpen, Lang: lang}
+	joinHash, err := newHash(a.random)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	sess := Session{Hash: hash, JoinHash: joinHash, State: stateOpen, Lang: languageFor(r)}
 	for i, row := range rows {
-		personal, err := newHash(a.random)
-		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+		p := Participant{Name: row.Name, Email: row.Email, Organizer: i == 0}
+		if row.Email != "" { // names without email are joined later, via the Join link
+			if p.Hash, err = newHash(a.random); err != nil {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
 		}
-		sess.Participants = append(sess.Participants, Participant{
-			Name: row.Name, Email: row.Email, Hash: personal, Organizer: i == 0,
-		})
+		sess.Participants = append(sess.Participants, p)
 	}
 	switch err := a.store.Create(sess); {
 	case errors.Is(err, ErrSessionExists):
@@ -93,6 +104,9 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, p := range sess.Participants {
+		if !p.joined() {
+			continue
+		}
 		if err := a.sendInvite(sess, p); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -122,8 +136,7 @@ func (a *app) correctEmail(w http.ResponseWriter, r *http.Request) {
 	case !ok:
 		http.NotFound(w, r)
 	default:
-		t := messagesFor(r)
-		render(w, http.StatusUnprocessableEntity, "session.html", map[string]any{"T": t, "Session": sess, "Errors": []string{t["err_bad_email"]}})
+		a.renderSession(w, r, http.StatusUnprocessableEntity, sess, []string{messagesFor(r)["err_bad_email"]})
 	}
 }
 
@@ -147,7 +160,7 @@ func (a *app) participantAction(w http.ResponseWriter, r *http.Request, change f
 			return errAlreadyDrawn
 		}
 		p := s.participantNamed(name)
-		if p == nil {
+		if p == nil || !p.joined() {
 			return os.ErrNotExist
 		}
 		change(p)
@@ -201,7 +214,8 @@ func validate(rows []rowView) []string {
 			dupName = true
 		}
 		seen[key] = true
-		badEmail = badEmail || !plausibleEmail(row.Email)
+		// Only the Organizer must give an email; the others may join later.
+		badEmail = badEmail || (row.Me || row.Email != "") && !plausibleEmail(row.Email)
 	}
 	if emptyName {
 		errKeys = append(errKeys, "err_empty_name")

@@ -43,6 +43,8 @@ func NewApp(dataDir string, mailer Mailer, baseURL string, random io.Reader) htt
 	mux.HandleFunc("POST /session/{hash}", a.submitSession)
 	mux.HandleFunc("POST /session/{hash}/email", a.correctEmail)
 	mux.HandleFunc("POST /session/{hash}/resend", a.resendLink)
+	mux.HandleFunc("GET /join/{hash}", a.joinPage)
+	mux.HandleFunc("POST /join/{hash}", a.submitJoin)
 	mux.HandleFunc("GET /participant-row", a.participantRow)
 	mux.HandleFunc("GET /{hash}", a.personal)
 	mux.HandleFunc("POST /{hash}", a.submitPersonal)

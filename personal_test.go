@@ -83,7 +83,7 @@ func TestSubmitStoresWishAndExclusionsAndMarksSubmitted(t *testing.T) {
 	}
 
 	status := c.do("GET", session, "en", nil).Body.String()
-	if !strings.Contains(status, "submitted") {
+	if !strings.Contains(status, ">joined<") {
 		t.Errorf("session page lacks submitted status:\n%s", status)
 	}
 }
@@ -101,7 +101,7 @@ func TestEditKeepsSubmittedAndReplacesData(t *testing.T) {
 	if regexp.MustCompile(`value="Ben"[^>]*checked`).MatchString(page) || !regexp.MustCompile(`value="Cleo"[^>]*checked`).MatchString(page) {
 		t.Errorf("exclusions not replaced:\n%s", page)
 	}
-	if status := c.do("GET", session, "en", nil).Body.String(); strings.Count(status, "submitted") != 1 {
+	if status := c.do("GET", session, "en", nil).Body.String(); strings.Count(status, ">joined<") != 1 {
 		t.Errorf("want exactly one submitted:\n%s", status)
 	}
 }
@@ -125,7 +125,7 @@ func TestWishValidation(t *testing.T) {
 			if !regexp.MustCompile(`value="Ben"[^>]*checked`).MatchString(rec.Body.String()) {
 				t.Error("exclusions not kept on error")
 			}
-			if strings.Contains(c.do("GET", session, "en", nil).Body.String(), "submitted") {
+			if strings.Contains(c.do("GET", session, "en", nil).Body.String(), ">joined<") {
 				t.Error("invalid submission marked as submitted")
 			}
 		})
@@ -162,7 +162,7 @@ func TestImpossibleExclusionsAreRejectedAndNothingIsSaved(t *testing.T) {
 	if strings.Contains(page, "Kerze") || strings.Contains(page, "checked") {
 		t.Errorf("rejected submission was stored:\n%s", page)
 	}
-	if status := c.do("GET", session, "en", nil).Body.String(); strings.Count(status, "submitted") != 2 {
+	if status := c.do("GET", session, "en", nil).Body.String(); strings.Count(status, ">joined<") != 2 {
 		t.Errorf("want exactly two submitted:\n%s", status)
 	}
 }

@@ -21,6 +21,7 @@ const (
 // Session is one Secret Santa round as persisted.
 type Session struct {
 	Hash         string
+	JoinHash     string // Join link hash; empty for Sessions created before Join links
 	State        string
 	Lang         string // the Organizer's language, used for invitation emails
 	Participants []Participant
@@ -30,7 +31,7 @@ type Session struct {
 type Participant struct {
 	Name      string
 	Email     string
-	Hash      string // Personal link hash
+	Hash      string // Personal link hash; empty until the name is joined
 	Organizer bool
 
 	Wish       string
@@ -59,6 +60,9 @@ func (s *Session) allSubmitted() bool {
 	}
 	return true
 }
+
+// joined reports whether the name has been claimed, i.e. has a Personal link.
+func (p *Participant) joined() bool { return p.Hash != "" }
 
 // participant returns the Participant with the given Personal link hash, or
 // nil if there is none. Changes through the pointer change the Session.
@@ -93,12 +97,11 @@ func newHash(random io.Reader) (string, error) {
 }
 
 // Store persists Sessions as one JSON file each in a directory (ADR-0001).
-// It is safe for concurrent use; callers never see files or the Personal
-// link index.
+// It is safe for concurrent use; callers never see files or the link indexes.
 type Store struct {
 	dir string
 	mu  sync.Mutex
-	// sessionOf maps a Personal link hash to the hash of its Session.
+	// sessionOf maps a Personal link hash or Join link hash to the hash of its Session.
 	sessionOf map[string]string
 }
 
@@ -169,12 +172,27 @@ func (s *Store) Update(hash string, fn func(*Session) error) error {
 	if err := fn(&sess); err != nil {
 		return err
 	}
-	return writeAtomically(s.path(hash), sess)
+	if err := writeAtomically(s.path(hash), sess); err != nil {
+		return err
+	}
+	s.index(sess)
+	return nil
 }
 
 // LoadByPersonalLink returns the Session containing the Participant with the
 // given Personal link hash; ok is false if there is none.
 func (s *Store) LoadByPersonalLink(hash string) (Session, bool, error) {
+	return s.loadByLink(hash)
+}
+
+// LoadByJoinLink returns the Session with the given Join link hash; ok is
+// false if there is none.
+func (s *Store) LoadByJoinLink(hash string) (Session, bool, error) {
+	sess, ok, err := s.loadByLink(hash)
+	return sess, ok && sess.JoinHash == hash, err
+}
+
+func (s *Store) loadByLink(hash string) (Session, bool, error) {
 	s.mu.Lock()
 	sessionHash, found := s.sessionOf[hash]
 	s.mu.Unlock()
@@ -187,8 +205,13 @@ func (s *Store) LoadByPersonalLink(hash string) (Session, bool, error) {
 func (s *Store) path(hash string) string { return filepath.Join(s.dir, hash+".json") }
 
 func (s *Store) index(sess Session) {
+	if sess.JoinHash != "" {
+		s.sessionOf[sess.JoinHash] = sess.Hash
+	}
 	for _, p := range sess.Participants {
-		s.sessionOf[p.Hash] = sess.Hash
+		if p.joined() {
+			s.sessionOf[p.Hash] = sess.Hash
+		}
 	}
 }
 

@@ -2,6 +2,12 @@
     {{if eq .Session.State "Drawn"}}
     <p class="success">🎉 {{.T.drawn}}</p>
     {{else}}
+    {{if .Session.JoinHash}}
+    <div class="field">
+      <span class="label">{{.T.join_link}}</span>
+      <code>{{.JoinURL}}</code>
+    </div>
+    {{end}}
     <h2>{{.T.participants}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     <ul class="participants">
@@ -9,17 +15,17 @@
       <li>
         <div class="participant-head">
           <strong>{{.Name}}</strong>
-          {{if .Submitted}}<span class="badge done">{{$.T.status_submitted}}</span>{{else}}<span class="badge">{{$.T.status_pending}}</span>{{end}}
-          <form method="post" action="/session/{{$.Session.Hash}}/resend">
+          {{if not .Hash}}<span class="badge">{{$.T.status_not_joined}}</span>{{else if .Submitted}}<span class="badge done">{{$.T.status_joined}}</span>{{else}}<span class="badge">{{$.T.status_pending}}</span>{{end}}
+          {{if .Hash}}<form method="post" action="/session/{{$.Session.Hash}}/resend">
             <input type="hidden" name="participant" value="{{.Name}}">
             <button class="secondary">{{$.T.resend}}</button>
-          </form>
+          </form>{{end}}
         </div>
-        <form method="post" action="/session/{{$.Session.Hash}}/email" class="inline">
+        {{if .Hash}}<form method="post" action="/session/{{$.Session.Hash}}/email" class="inline">
           <input type="hidden" name="participant" value="{{.Name}}">
           <input type="email" name="email" value="{{.Email}}" required aria-label="{{$.T.email}}">
           <button class="secondary">{{$.T.save_email}}</button>
-        </form>
+        </form>{{end}}
       </li>
       {{end}}
     </ul>

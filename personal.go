@@ -84,34 +84,14 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	t := messagesFor(r)
-	switch {
-	case me.Wish == "":
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_empty_wish"]})
-		return
-	case utf8.RuneCountInString(me.Wish) > maxWishLength:
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_long_wish"]})
+	if key := wishError(me.Wish); key != "" {
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]})
 		return
 	}
 
-	// The feasibility check, the save and the Draw happen in one store update,
-	// so two simultaneous Submissions can't each pass the check on their own
-	// and together leave no valid Draw, and the last ones can't Draw twice.
-	var drawn *Session // set if this Submission completed the Draw
-	err := a.store.Update(sess.Hash, func(s *Session) error {
-		if s.State == stateDrawn {
-			return errAlreadyDrawn
-		}
+	drawn, err := a.submit(sess.Hash, func(s *Session) error {
 		p := s.participant(me.Hash)
 		p.Wish, p.Exclusions, p.Submitted, p.Lang = me.Wish, me.Exclusions, true, languageFor(r)
-		if !DrawPossible(s.Participants) {
-			return ErrNoDraw
-		}
-		if s.allSubmitted() {
-			if err := drawSession(s, a.random); err != nil {
-				return err
-			}
-			drawn = s
-		}
 		return nil
 	})
 	switch {
@@ -130,6 +110,46 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
 	}
+}
+
+// wishError returns the message key of the rule a Wish violates, or "".
+func wishError(wish string) string {
+	switch {
+	case wish == "":
+		return "err_empty_wish"
+	case utf8.RuneCountInString(wish) > maxWishLength:
+		return "err_long_wish"
+	}
+	return ""
+}
+
+// submit stores a Submission, which change applies to the Session, and runs
+// the automatic Draw if it was the last missing one; the Session it drew is
+// returned, otherwise nil. Everything happens in one store update, so two
+// simultaneous Submissions can't each pass the feasibility check on their own
+// and together leave no valid Draw, and the last ones can't Draw twice.
+// change's error aborts the update; a Drawn Session fails with errAlreadyDrawn
+// and exclusions leaving no valid Draw with ErrNoDraw.
+func (a *app) submit(sessionHash string, change func(*Session) error) (drawn *Session, err error) {
+	err = a.store.Update(sessionHash, func(s *Session) error {
+		if s.State == stateDrawn {
+			return errAlreadyDrawn
+		}
+		if err := change(s); err != nil {
+			return err
+		}
+		if !DrawPossible(s.Participants) {
+			return ErrNoDraw
+		}
+		if s.allSubmitted() {
+			if err := drawSession(s, a.random); err != nil {
+				return err
+			}
+			drawn = s
+		}
+		return nil
+	})
+	return drawn, err
 }
 
 // errAlreadyDrawn is returned from a store update that finds the Draw done.
@@ -152,11 +172,20 @@ func (a *app) sendDrawEmails(s Session) error {
 func others(sess Session, me Participant) []string {
 	var names []string
 	for _, p := range sess.Participants {
-		if p.Hash != me.Hash {
+		if p.Name != me.Name {
 			names = append(names, p.Name)
 		}
 	}
 	return names
+}
+
+// otherViews returns the Exclusion checkboxes for me, ticked as me has set them.
+func otherViews(sess Session, me Participant) []otherView {
+	var views []otherView
+	for _, name := range others(sess, me) {
+		views = append(views, otherView{name, slices.Contains(me.Exclusions, name)})
+	}
+	return views
 }
 
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
@@ -165,8 +194,6 @@ func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Ses
 		view.Drawn, view.Recipient = true, me.Recipient
 		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish
 	}
-	for _, name := range others(sess, me) {
-		view.Others = append(view.Others, otherView{name, slices.Contains(me.Exclusions, name)})
-	}
+	view.Others = otherViews(sess, me)
 	render(w, status, "personal.html", view)
 }
