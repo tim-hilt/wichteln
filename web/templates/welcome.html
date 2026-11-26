@@ -1,11 +1,13 @@
 {{template "header" .}}
     <form method="post" action="/new"><button>{{.T.create}}</button></form>
     <form method="post" action="/open-session">
-      <label>{{.T.open_session}} <input name="hash" required placeholder="{{.T.session_hash}}"></label>
+      {{if eq .Form "/open-session"}}<p class="error">{{.Error}}</p>{{end}}
+      <label>{{.T.open_session}} <input name="hash" required placeholder="{{.T.session_hash}}"{{if eq .Form "/open-session"}} value="{{.Input}}"{{end}}></label>
       <button>{{.T.go}}</button>
     </form>
     <form method="post" action="/open-link">
-      <label>{{.T.open_link}} <input name="hash" required placeholder="{{.T.link_hash}}"></label>
+      {{if eq .Form "/open-link"}}<p class="error">{{.Error}}</p>{{end}}
+      <label>{{.T.open_link}} <input name="hash" required placeholder="{{.T.link_hash}}"{{if eq .Form "/open-link"}} value="{{.Input}}"{{end}}></label>
       <button>{{.T.go}}</button>
     </form>
 {{template "footer" .}}
