@@ -1,0 +1,7 @@
+{{template "header" .}}
+    <table>
+      {{range .Session.Participants}}
+      <tr><td>{{.Name}}</td><td>{{.Email}}</td><td>{{$.T.status_pending}}</td></tr>
+      {{end}}
+    </table>
+{{template "footer" .}}

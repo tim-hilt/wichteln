@@ -1,0 +1,6 @@
+<div class="row">
+  {{if .Me}}<strong>{{.T.me}}</strong>{{end}}
+  <input name="name" value="{{.Name}}" placeholder="{{.T.name}}" aria-label="{{.T.name}}">
+  <input name="email" type="email" value="{{.Email}}" placeholder="{{.T.email}}" aria-label="{{.T.email}}">
+  {{if not .Me}}<button type="button" hx-on:click="this.closest('.row').remove()">{{.T.remove}}</button>{{end}}
+</div>

@@ -4,16 +4,16 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 Spec: `.scratch/secret-santa/spec.md` · Vocabulary: `GLOSSARY.md` · Persistence: ADR-0001
 
-- [ ] Stdlib-only Go module; one application constructor takes the data directory, Mailer, base URL and random source, and returns the root `http.Handler` (Seam A)
-- [ ] A Mailer interface exists, with a stdout adapter that logs emails
-- [ ] `GET /` renders the welcome page with the three actions (forms may be non-functional for now)
-- [ ] All visible text comes from a single DE/EN message catalog that templates use; DE is chosen when German is the top-ranked supported language in `Accept-Language`, otherwise EN
-- [ ] Templates, CSS and vendored HTMX are embedded in the binary
-- [ ] Config via env: listen address, data directory, base URL
-- [ ] Multi-stage Dockerfile whose final stage is `FROM scratch`; the image starts and serves the welcome page
-- [ ] A GitHub Actions workflow runs `go test ./...` and builds the Docker image
-- [ ] Seam A tests: the welcome page renders in DE for a German `Accept-Language` and in EN otherwise
+- [x] Stdlib-only Go module; one application constructor takes the data directory, Mailer, base URL and random source, and returns the root `http.Handler` (Seam A)
+- [x] A Mailer interface exists, with a stdout adapter that logs emails
+- [x] `GET /` renders the welcome page with the three actions (forms may be non-functional for now)
+- [x] All visible text comes from a single DE/EN message catalog that templates use; DE is chosen when German is the top-ranked supported language in `Accept-Language`, otherwise EN
+- [x] Templates, CSS and vendored HTMX are embedded in the binary
+- [x] Config via env: listen address, data directory, base URL
+- [x] Multi-stage Dockerfile whose final stage is `FROM scratch`; the image starts and serves the welcome page
+- [x] A GitHub Actions workflow runs `go test ./...` and builds the Docker image
+- [x] Seam A tests: the welcome page renders in DE for a German `Accept-Language` and in EN otherwise

@@ -1,0 +1,8 @@
+{{template "header" .}}
+    {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
+    <form method="post" action="/session/{{.Hash}}">
+      <div id="rows">{{range .Rows}}{{template "participant_row.html" .}}{{end}}</div>
+      <button type="button" hx-get="/participant-row" hx-target="#rows" hx-swap="beforeend">{{.T.add_participant}}</button>
+      <button>{{.T.submit_session}}</button>
+    </form>
+{{template "footer" .}}

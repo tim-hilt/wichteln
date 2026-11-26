@@ -1,0 +1,171 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"net/mail"
+	"strings"
+)
+
+// minParticipants keeps the Draw secret: with fewer, assignments are guessable.
+const minParticipants = 3
+
+// rowView is one Participant row of the creation form.
+type rowView struct {
+	T           Messages
+	Me          bool // the Organizer's own row: labelled, not removable
+	Name, Email string
+}
+
+// createSessionLink starts a new Session by redirecting to a fresh Session
+// link. Nothing is stored until the creation form is submitted.
+func (a *app) createSessionLink(w http.ResponseWriter, r *http.Request) {
+	hash, err := newHash(a.random)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
+}
+
+// session shows the status page of an existing Session, or the empty
+// creation form if the hash is unknown.
+func (a *app) session(w http.ResponseWriter, r *http.Request) {
+	hash := r.PathValue("hash")
+	if !validHash(hash) {
+		http.NotFound(w, r)
+		return
+	}
+	sess, ok, err := a.store.Load(hash)
+	switch {
+	case err != nil:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	case ok:
+		render(w, http.StatusOK, "session.html", map[string]any{"T": messagesFor(r), "Session": sess})
+	default:
+		renderForm(w, r, http.StatusOK, hash, []rowView{{Me: true}}, nil)
+	}
+}
+
+// participantRow serves an empty row for HTMX to append to the creation form.
+func (a *app) participantRow(w http.ResponseWriter, r *http.Request) {
+	render(w, http.StatusOK, "participant_row.html", rowView{T: messagesFor(r)})
+}
+
+// submitSession validates the creation form, stores the Session as Open and
+// emails every Participant their Personal link in the Organizer's language.
+func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
+	hash := r.PathValue("hash")
+	if !validHash(hash) {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	rows := rowsFromForm(r)
+	if errKeys := validate(rows); len(errKeys) > 0 {
+		renderForm(w, r, http.StatusUnprocessableEntity, hash, rows, errKeys)
+		return
+	}
+
+	lang := languageFor(r)
+	sess := Session{Hash: hash, State: stateOpen, Lang: lang}
+	for i, row := range rows {
+		personal, err := newHash(a.random)
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		sess.Participants = append(sess.Participants, Participant{
+			Name: row.Name, Email: row.Email, Hash: personal, Organizer: i == 0,
+		})
+	}
+	switch err := a.store.Create(sess); {
+	case errors.Is(err, ErrSessionExists):
+		http.Error(w, "session already exists", http.StatusConflict)
+		return
+	case err != nil:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	t := catalog[lang]
+	for _, p := range sess.Participants {
+		body := fmt.Sprintf(t["invite_body"], p.Name, a.baseURL+"/"+p.Hash)
+		if err := a.mailer.Send(p.Email, t["invite_subject"], body); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+	http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
+}
+
+// rowsFromForm reads the parallel name/email fields; the first row is the Organizer.
+func rowsFromForm(r *http.Request) []rowView {
+	names, emails := r.PostForm["name"], r.PostForm["email"]
+	var rows []rowView
+	for i, name := range names {
+		row := rowView{Me: i == 0, Name: strings.TrimSpace(name)}
+		if i < len(emails) {
+			row.Email = strings.TrimSpace(emails[i])
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// validate returns the message keys of all rule violations in the rows.
+func validate(rows []rowView) []string {
+	var errKeys []string
+	if len(rows) < minParticipants {
+		errKeys = append(errKeys, "err_too_few")
+	}
+	seen := map[string]bool{}
+	emptyName, dupName, badEmail := false, false, false
+	for _, row := range rows {
+		key := strings.ToLower(row.Name)
+		switch {
+		case row.Name == "":
+			emptyName = true
+		case seen[key]:
+			dupName = true
+		}
+		seen[key] = true
+		badEmail = badEmail || !plausibleEmail(row.Email)
+	}
+	if emptyName {
+		errKeys = append(errKeys, "err_empty_name")
+	}
+	if dupName {
+		errKeys = append(errKeys, "err_dup_name")
+	}
+	if badEmail {
+		errKeys = append(errKeys, "err_bad_email")
+	}
+	return errKeys
+}
+
+// plausibleEmail accepts a bare address with a dotted domain, e.g. a@b.de.
+func plausibleEmail(s string) bool {
+	addr, err := mail.ParseAddress(s)
+	if err != nil || addr.Address != s {
+		return false
+	}
+	_, domain, _ := strings.Cut(s, "@")
+	return strings.Contains(domain, ".")
+}
+
+func renderForm(w http.ResponseWriter, r *http.Request, status int, hash string, rows []rowView, errKeys []string) {
+	t := messagesFor(r)
+	var errs []string
+	for _, k := range errKeys {
+		errs = append(errs, t[k])
+	}
+	for i := range rows {
+		rows[i].T = t
+	}
+	render(w, status, "session_form.html", map[string]any{"T": t, "Hash": hash, "Rows": rows, "Errors": errs})
+}
