@@ -1,7 +1,7 @@
 {{template "header" .}}
     <h2>{{printf .T.greeting .Name}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
-    <form method="post" action="/join/{{.JoinHash}}">
+    <form method="post">
       <input type="hidden" name="name" value="{{.Name}}">
       {{template "submission_fields" .}}
       <div class="actions"><button>{{.T.submit_join}}</button></div>

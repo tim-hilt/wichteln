@@ -9,13 +9,6 @@ import (
 // errNameTaken is returned from a store update that finds the name joined.
 var errNameTaken = errors.New("name already joined")
 
-// joinView is the data of the join form: the Personal link form plus the
-// Join link it posts to.
-type joinView struct {
-	personalView
-	JoinHash string
-}
-
 // findByJoinLink returns the Session behind a Join link hash, or writes the
 // 404 / 500 response and returns ok=false.
 func (a *app) findByJoinLink(w http.ResponseWriter, r *http.Request) (Session, bool) {
@@ -131,7 +124,7 @@ func renderJoinSelection(w http.ResponseWriter, r *http.Request, status int, ses
 }
 
 // renderJoinForm shows the join form greeting me, prefilled with what me
-// has entered so far.
+// has entered so far. It posts back to the Join link it is shown on.
 func renderJoinForm(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
-	render(w, status, "join_form.html", joinView{submissionView(r, sess, me, errs), sess.JoinHash})
+	render(w, status, "join_form.html", submissionView(r, sess, me, errs))
 }

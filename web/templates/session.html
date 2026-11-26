@@ -9,7 +9,6 @@
     </div>
     {{end}}
     <h2>{{.T.participants}}</h2>
-    {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     <ul class="participants">
       {{range .Session.Participants}}
       <li>

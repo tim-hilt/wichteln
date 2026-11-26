@@ -37,9 +37,9 @@ func NewApp(dataDir string, mailer Mailer, baseURL string, random io.Reader) htt
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", a.welcome)
 	mux.HandleFunc("POST /new", a.createSessionLink)
-	mux.HandleFunc("POST /open-session", a.openSession)
-	mux.HandleFunc("POST /open-link", a.openLink)
-	mux.HandleFunc("POST /open-join", a.openJoin)
+	mux.HandleFunc("POST /open-session", a.open("/session/", store.Load))
+	mux.HandleFunc("POST /open-link", a.open("/", store.LoadByPersonalLink))
+	mux.HandleFunc("POST /open-join", a.open("/join/", store.LoadByJoinLink))
 	mux.HandleFunc("GET /session/{hash}", a.session)
 	mux.HandleFunc("POST /session/{hash}", a.submitSession)
 	mux.HandleFunc("POST /session/{hash}/resend", a.resendLink)
@@ -85,43 +85,22 @@ func hashFrom(input string) string {
 	return input[strings.LastIndex(input, "/")+1:]
 }
 
-// openSession redirects to the Session whose hash or link was pasted.
-func (a *app) openSession(w http.ResponseWriter, r *http.Request) {
-	a.open(w, r, func(hash string) (string, bool, error) {
-		_, ok, err := a.store.Load(hash)
-		return "/session/" + hash, ok, err
-	})
-}
-
-// openLink redirects to the Personal link page whose hash or link was pasted.
-func (a *app) openLink(w http.ResponseWriter, r *http.Request) {
-	a.open(w, r, func(hash string) (string, bool, error) {
-		_, ok, err := a.store.LoadByPersonalLink(hash)
-		return "/" + hash, ok, err
-	})
-}
-
-// openJoin redirects to the join page whose Join hash or link was pasted.
-func (a *app) openJoin(w http.ResponseWriter, r *http.Request) {
-	a.open(w, r, func(hash string) (string, bool, error) {
-		_, ok, err := a.store.LoadByJoinLink(hash)
-		return "/join/" + hash, ok, err
-	})
-}
-
-// open extracts the pasted hash and redirects to the path find reports as
-// existing. An unknown hash re-renders the welcome page with an error and the
-// input kept; nothing is ever created.
-func (a *app) open(w http.ResponseWriter, r *http.Request, find func(hash string) (path string, ok bool, err error)) {
-	input := r.PostFormValue("hash")
-	path, ok, err := find(hashFrom(input))
-	switch {
-	case err != nil:
-		internalError(w)
-	case !ok:
-		t := messagesFor(r)
-		render(w, http.StatusNotFound, "welcome.html", map[string]any{"T": t, "Error": t["not_found"], "Input": input, "Form": r.URL.Path})
-	default:
-		http.Redirect(w, r, path, http.StatusSeeOther)
+// open returns a handler that extracts the pasted hash and, if load finds it,
+// redirects to prefix+hash. An unknown hash re-renders the welcome page with
+// an error and the input kept; nothing is ever created.
+func (a *app) open(prefix string, load func(hash string) (Session, bool, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		input := r.PostFormValue("hash")
+		hash := hashFrom(input)
+		_, ok, err := load(hash)
+		switch {
+		case err != nil:
+			internalError(w)
+		case !ok:
+			t := messagesFor(r)
+			render(w, http.StatusNotFound, "welcome.html", map[string]any{"T": t, "Error": t["not_found"], "Input": input, "Form": r.URL.Path})
+		default:
+			http.Redirect(w, r, prefix+hash, http.StatusSeeOther)
+		}
 	}
 }

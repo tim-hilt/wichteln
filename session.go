@@ -42,16 +42,12 @@ func (a *app) session(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		internalError(w)
 	case ok:
-		a.renderSession(w, r, http.StatusOK, sess, nil)
+		render(w, http.StatusOK, "session.html", map[string]any{
+			"T": messagesFor(r), "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash,
+		})
 	default:
 		renderForm(w, r, http.StatusOK, hash, []rowView{{Me: true}}, nil)
 	}
-}
-
-func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, sess Session, errs []string) {
-	render(w, status, "session.html", map[string]any{
-		"T": messagesFor(r), "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash, "Errors": errs,
-	})
 }
 
 // participantRow serves an empty row for HTMX to append to the creation form.
