@@ -4,12 +4,12 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 Spec: `.scratch/join-link/spec.md`
 
-- [ ] The Personal link form shows the Participant's current email as a required field, validated as plausible
-- [ ] Saving with a changed address sends the confirmation email to the new address (the Organizer email for the Organizer)
-- [ ] Saving without changing the address sends no email
-- [ ] After the Draw the email can no longer be changed
-- [ ] All new texts in DE and EN
+- [x] The Personal link form shows the Participant's current email as a required field, validated as plausible
+- [x] Saving with a changed address sends the confirmation email to the new address (the Organizer email for the Organizer)
+- [x] Saving without changing the address sends no email
+- [x] After the Draw the email can no longer be changed
+- [x] All new texts in DE and EN
