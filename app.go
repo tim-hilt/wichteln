@@ -53,7 +53,31 @@ func NewApp(dataDir string, mailer Mailer, baseURL string, random io.Reader) htt
 }
 
 func (a *app) welcome(w http.ResponseWriter, r *http.Request) {
-	render(w, http.StatusOK, "welcome.html", map[string]any{"T": messagesFor(r)})
+	renderWelcome(w, r, http.StatusOK, "")
+}
+
+// openForm is one form of the welcome page that opens a pasted link. ID is
+// its route without the slash; Label and Placeholder are message keys.
+type openForm struct {
+	ID, Label, Placeholder string
+	Input, Error           string
+}
+
+// renderWelcome shows the welcome page. A non-empty failedRoute (e.g.
+// "/open-link") marks that form's pasted input as not found and keeps it.
+func renderWelcome(w http.ResponseWriter, r *http.Request, status int, failedRoute string) {
+	t := messagesFor(r)
+	forms := []openForm{
+		{ID: "open-session", Label: "open_session", Placeholder: "session_hash"},
+		{ID: "open-link", Label: "open_link", Placeholder: "link_hash"},
+		{ID: "open-join", Label: "open_join", Placeholder: "join_hash"},
+	}
+	for i := range forms {
+		if "/"+forms[i].ID == failedRoute {
+			forms[i].Input, forms[i].Error = r.PostFormValue("hash"), t["not_found"]
+		}
+	}
+	render(w, status, "welcome.html", map[string]any{"T": t, "Forms": forms})
 }
 
 func render(w http.ResponseWriter, status int, name string, data any) {
@@ -90,15 +114,13 @@ func hashFrom(input string) string {
 // an error and the input kept; nothing is ever created.
 func (a *app) open(prefix string, load func(hash string) (Session, bool, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		input := r.PostFormValue("hash")
-		hash := hashFrom(input)
+		hash := hashFrom(r.PostFormValue("hash"))
 		_, ok, err := load(hash)
 		switch {
 		case err != nil:
 			internalError(w)
 		case !ok:
-			t := messagesFor(r)
-			render(w, http.StatusNotFound, "welcome.html", map[string]any{"T": t, "Error": t["not_found"], "Input": input, "Form": r.URL.Path})
+			renderWelcome(w, r, http.StatusNotFound, r.URL.Path)
 		default:
 			http.Redirect(w, r, prefix+hash, http.StatusSeeOther)
 		}

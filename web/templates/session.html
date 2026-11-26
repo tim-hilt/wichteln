@@ -1,5 +1,5 @@
 {{template "header" .}}
-    {{if eq .Session.State "Drawn"}}
+    {{if .Session.Drawn}}
     <p class="success">🎉 {{.T.drawn}}</p>
     {{else}}
     {{if .Session.JoinHash}}

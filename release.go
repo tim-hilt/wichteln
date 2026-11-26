@@ -22,7 +22,7 @@ func (a *app) releaseParticipant(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case p == nil || !p.joined() || p.Organizer:
 			return errNotReleasable
-		case s.State == stateDrawn:
+		case s.Drawn():
 			return errAlreadyDrawn
 		}
 		// Keep the name; everything the person gave is dropped.

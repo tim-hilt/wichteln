@@ -52,6 +52,9 @@ func (s *Session) participantNamed(name string) *Participant {
 	return nil
 }
 
+// Drawn reports whether the Draw has happened; the Session is then read-only.
+func (s Session) Drawn() bool { return s.State == stateDrawn }
+
 // organizer returns the Organizer, who is always the first Participant.
 func (s *Session) organizer() *Participant { return &s.Participants[0] }
 

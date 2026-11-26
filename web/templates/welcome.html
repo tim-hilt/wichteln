@@ -1,34 +1,16 @@
 {{template "header" .}}
     <form method="post" action="/new"><button>{{.T.create}}</button></form>
     <hr>
-    <form method="post" action="/open-session">
+    {{range .Forms}}
+    <form method="post" action="/{{.ID}}">
       <div class="field">
-        <label for="session-hash">{{.T.open_session}}</label>
+        <label for="{{.ID}}">{{index $.T .Label}}</label>
         <div class="inline">
-          <input id="session-hash" name="hash" required placeholder="{{.T.session_hash}}"{{if eq .Form "/open-session"}} value="{{.Input}}"{{end}}>
-          <button class="secondary">{{.T.go}}</button>
+          <input id="{{.ID}}" name="hash" required placeholder="{{index $.T .Placeholder}}"{{if .Error}} value="{{.Input}}"{{end}}>
+          <button class="secondary">{{$.T.go}}</button>
         </div>
-        {{if eq .Form "/open-session"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+        {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
       </div>
     </form>
-    <form method="post" action="/open-link">
-      <div class="field">
-        <label for="link-hash">{{.T.open_link}}</label>
-        <div class="inline">
-          <input id="link-hash" name="hash" required placeholder="{{.T.link_hash}}"{{if eq .Form "/open-link"}} value="{{.Input}}"{{end}}>
-          <button class="secondary">{{.T.go}}</button>
-        </div>
-        {{if eq .Form "/open-link"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-      </div>
-    </form>
-    <form method="post" action="/open-join">
-      <div class="field">
-        <label for="join-hash">{{.T.open_join}}</label>
-        <div class="inline">
-          <input id="join-hash" name="hash" required placeholder="{{.T.join_hash}}"{{if eq .Form "/open-join"}} value="{{.Input}}"{{end}}>
-          <button class="secondary">{{.T.go}}</button>
-        </div>
-        {{if eq .Form "/open-join"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-      </div>
-    </form>
+    {{end}}
 {{template "footer" .}}

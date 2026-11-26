@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -46,14 +45,14 @@ type otherView struct {
 func (a *app) findByPersonalLink(w http.ResponseWriter, r *http.Request) (Session, Participant, bool) {
 	hash := r.PathValue("hash")
 	sess, ok, err := a.store.LoadByPersonalLink(hash)
-	if err != nil {
+	switch {
+	case err != nil:
 		internalError(w)
-		return Session{}, Participant{}, false
-	}
-	if ok {
+	case !ok:
+		renderNotFound(w, r)
+	default:
 		return sess, *sess.participant(hash), true
 	}
-	renderNotFound(w, r)
 	return Session{}, Participant{}, false
 }
 
@@ -89,7 +88,7 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if sess.State == stateDrawn {
+	if sess.Drawn() {
 		http.Error(w, "already drawn", http.StatusConflict)
 		return
 	}
@@ -180,7 +179,7 @@ func submissionError(p Participant) string {
 // and exclusions leaving no valid Draw with ErrNoDraw.
 func (a *app) submit(sessionHash string, change func(*Session) error) (drawn *Session, err error) {
 	err = a.store.Update(sessionHash, func(s *Session) error {
-		if s.State == stateDrawn {
+		if s.Drawn() {
 			return errAlreadyDrawn
 		}
 		if err := change(s); err != nil {
@@ -202,23 +201,6 @@ func (a *app) submit(sessionHash string, change func(*Session) error) (drawn *Se
 
 // errAlreadyDrawn is returned from a store update that finds the Draw done.
 var errAlreadyDrawn = errors.New("session already drawn")
-
-// sendDrawEmails tells every Participant of the drawn Session, in the
-// language of their last Submission, whom they give to and that person's
-// Wish; nil (no Draw happened) sends nothing. A failed email does not stop
-// the others: the Draw is already saved and can't be repeated.
-func (a *app) sendDrawEmails(s *Session) error {
-	if s == nil {
-		return nil
-	}
-	var errs []error
-	for _, p := range s.Participants {
-		t := catalog[p.Lang]
-		view := mailView{T: t, Intro: fmt.Sprintf(t["draw_intro"], p.Recipient), Wish: s.participantNamed(p.Recipient).Wish}
-		errs = append(errs, a.send(p, t["draw_subject"], view))
-	}
-	return errors.Join(errs...)
-}
 
 // others returns the names of all Participants except me.
 func others(sess Session, me Participant) []string {
@@ -248,8 +230,8 @@ func submissionView(r *http.Request, sess Session, me Participant, errs []string
 
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string, joined bool) {
 	view := submissionView(r, sess, me, errs)
-	view.Joined = joined && sess.State != stateDrawn
-	if sess.State == stateDrawn {
+	view.Joined = joined && !sess.Drawn()
+	if sess.Drawn() {
 		view.Drawn, view.Recipient = true, me.Recipient
 		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish
 	}

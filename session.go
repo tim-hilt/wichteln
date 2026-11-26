@@ -101,21 +101,6 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
 }
 
-// sendLinks emails a joined Participant their links: the Organizer all three
-// (Session, Join and Personal link) in the Session's language, anyone else
-// their Personal link in their own language.
-func (a *app) sendLinks(s Session, p Participant) error {
-	if !p.Organizer {
-		return a.sendJoinConfirmation(p)
-	}
-	t := catalog[s.Lang]
-	return a.send(p, t["organizer_subject"], mailView{T: t, Intro: t["organizer_intro"], Links: []mailLink{
-		{t["session_link"], a.baseURL + "/session/" + s.Hash},
-		{t["join_link"], a.baseURL + "/join/" + s.JoinHash},
-		{t["personal_link"], a.baseURL + "/" + p.Hash},
-	}})
-}
-
 // resendLink sends a joined Participant their links again, to the address they
 // entered. Unknown Sessions and Participants and names not joined yet get 404;
 // once the Session is Drawn, 409 and nothing is sent.
@@ -129,7 +114,7 @@ func (a *app) resendLink(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case !ok || p == nil || !p.joined():
 		http.NotFound(w, r)
-	case sess.State == stateDrawn:
+	case sess.Drawn():
 		http.Error(w, "already drawn", http.StatusConflict)
 	default:
 		if err := a.sendLinks(sess, *p); err != nil {

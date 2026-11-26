@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 )
 
@@ -30,7 +29,7 @@ func (a *app) joinPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if p := sess.participantNamed(r.URL.Query().Get("name")); p != nil && !p.joined() && sess.State != stateDrawn {
+	if p := sess.participantNamed(r.URL.Query().Get("name")); p != nil && !p.joined() && !sess.Drawn() {
 		renderJoinForm(w, r, http.StatusOK, sess, Participant{Name: p.Name}, nil)
 		return
 	}
@@ -47,7 +46,7 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if sess.State == stateDrawn {
+	if sess.Drawn() {
 		renderJoinSelection(w, r, http.StatusConflict, sess, "")
 		return
 	}
@@ -99,18 +98,6 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// sendJoinConfirmation emails the joiner their Personal link in their language.
-func (a *app) sendJoinConfirmation(p Participant) error {
-	t := catalog[p.Lang]
-	return a.send(p, t["join_subject"], mailView{T: t, Intro: t["join_intro"], Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
-}
-
-// notifyOrganizer emails the Organizer, in their language, who has joined.
-func (a *app) notifyOrganizer(sess Session, joiner Participant) error {
-	t := catalog[sess.Lang]
-	return a.send(*sess.organizer(), fmt.Sprintf(t["joined_subject"], joiner.Name), mailView{T: t, Intro: fmt.Sprintf(t["joined_intro"], joiner.Name)})
-}
-
 func renderJoinSelection(w http.ResponseWriter, r *http.Request, status int, sess Session, errMsg string) {
 	var names []string
 	for _, p := range sess.Participants {
@@ -119,7 +106,7 @@ func renderJoinSelection(w http.ResponseWriter, r *http.Request, status int, ses
 		}
 	}
 	render(w, status, "join_select.html", map[string]any{
-		"T": messagesFor(r), "Hash": sess.JoinHash, "Names": names, "Error": errMsg, "Closed": sess.State == stateDrawn,
+		"T": messagesFor(r), "Hash": sess.JoinHash, "Names": names, "Error": errMsg, "Closed": sess.Drawn(),
 	})
 }
 
