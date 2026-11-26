@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 Spec: `.scratch/join-link/spec.md`
 
-- [ ] An email can contain zero, one or several links, each with a label, in both the text and HTML parts
-- [ ] Existing invitation and Draw emails are unchanged (existing tests stay green)
-- [ ] No user-visible behaviour change
+- [x] An email can contain zero, one or several links, each with a label, in both the text and HTML parts
+- [x] Existing invitation and Draw emails are unchanged (existing tests stay green)
+- [x] No user-visible behaviour change

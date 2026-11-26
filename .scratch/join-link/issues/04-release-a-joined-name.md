@@ -4,13 +4,13 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 Spec: `.scratch/join-link/spec.md`
 
-- [ ] The Session page offers "Release" for each joined non-Organizer Participant before the Draw
-- [ ] Release clears the Participant's email, Wish, Exclusions and submitted state; their old Personal link returns the not-found page
-- [ ] The released name is listed on the Join page again and can be joined
-- [ ] Release sends no email and never triggers the Draw
-- [ ] Releasing the Organizer or a not-joined name is rejected; after the Draw Release returns 409 and changes nothing
-- [ ] All new texts in DE and EN
+- [x] The Session page offers "Release" for each joined non-Organizer Participant before the Draw
+- [x] Release clears the Participant's email, Wish, Exclusions and submitted state; their old Personal link returns the not-found page
+- [x] The released name is listed on the Join page again and can be joined
+- [x] Release sends no email and never triggers the Draw
+- [x] Releasing the Organizer or a not-joined name is rejected; after the Draw Release returns 409 and changes nothing
+- [x] All new texts in DE and EN

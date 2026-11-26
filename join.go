@@ -11,11 +11,10 @@ import (
 var errNameTaken = errors.New("name already joined")
 
 // joinView is the data of the join form: the Personal link form plus the
-// email the joiner enters.
+// Join link it posts to.
 type joinView struct {
 	personalView
 	JoinHash string
-	Email    string
 }
 
 // findByJoinLink returns the Session behind a Join link hash, or writes the
@@ -75,7 +74,7 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 			me.Exclusions = append(me.Exclusions, o)
 		}
 	}
-	view := joinView{personalView: personalView{Name: me.Name, Wish: me.Wish, Others: otherViews(sess, me)}, Email: me.Email}
+	view := joinView{personalView: personalView{Name: me.Name, Email: me.Email, Wish: me.Wish, Others: otherViews(sess, me)}}
 	switch {
 	case !plausibleEmail(me.Email):
 		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, view, []string{t["err_bad_email"]})

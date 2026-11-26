@@ -1,4 +1,8 @@
-{{define "wish_fields"}}
+{{define "submission_fields"}}
+      <div class="field">
+        <label for="email">{{.T.email}}</label>
+        <input id="email" type="email" name="email" value="{{.Email}}" required>
+      </div>
       <div class="field">
         <label for="wish">{{.T.wish}}</label>
         <textarea id="wish" name="wish" required rows="5">{{.Wish}}</textarea>

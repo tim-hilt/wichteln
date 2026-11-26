@@ -185,7 +185,7 @@ func TestOrganizerRowTurnsJoinedAfterTheirWish(t *testing.T) {
 	if r := row(); !strings.Contains(r, "pending") {
 		t.Errorf("want pending:\n%s", r)
 	}
-	c.do("POST", anna, "en", wishForm("w"))
+	c.do("POST", anna, "en", c.personalForm(anna, "w"))
 	if r := row(); !strings.Contains(r, "joined") || strings.Contains(r, "pending") {
 		t.Errorf("want joined:\n%s", r)
 	}

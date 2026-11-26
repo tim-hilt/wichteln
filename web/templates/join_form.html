@@ -3,11 +3,7 @@
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/join/{{.JoinHash}}">
       <input type="hidden" name="name" value="{{.Name}}">
-      <div class="field">
-        <label for="email">{{.T.email}}</label>
-        <input id="email" type="email" name="email" value="{{.Email}}" required>
-      </div>
-      {{template "wish_fields" .}}
+      {{template "submission_fields" .}}
       <div class="actions"><button>{{.T.submit_join}}</button></div>
     </form>
 {{template "footer" .}}

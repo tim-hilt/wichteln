@@ -76,10 +76,10 @@ func TestReleaseAfterDrawIsConflictAndChangesNothing(t *testing.T) {
 func TestReleaseOfSubmittedParticipantNeverTriggersDraw(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, p := openSession(t, c)
-	c.do("POST", p["Ben"], "en", wishForm("b", "Cleo"))
+	c.do("POST", p["Ben"], "en", c.personalForm(p["Ben"], "b", "Cleo"))
 	before := len(c.mailer.sent)
 	release(c, session, "Cleo") // the others are all submitted except Anna
-	c.do("POST", p["Anna"], "en", wishForm("a"))
+	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "a"))
 	if len(c.mailer.sent) != before {
 		t.Error("mail sent")
 	}

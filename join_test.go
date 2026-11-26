@@ -148,7 +148,7 @@ func TestSecondJoinOfSameNameIsConflict(t *testing.T) {
 func TestLastJoinTriggersDrawToJoinedAddressesThenJoiningIsClosed(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	_, join, anna := createAnnaSession(t, c, "en")
-	c.do("POST", anna, "en", wishForm("a"))
+	c.do("POST", anna, "en", c.personalForm(anna, "a"))
 	c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b"))
 	before := len(c.mailer.sent)
 	c.do("POST", join, "en", joinForm("Cleo", "cleo@x.de", "c"))

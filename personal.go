@@ -17,6 +17,7 @@ const maxWishLength = 2000
 type personalView struct {
 	T      Messages
 	Name   string
+	Email  string
 	Wish   string
 	Others []otherView
 	Errors []string
@@ -51,7 +52,7 @@ func (a *app) findByPersonalLink(w http.ResponseWriter, r *http.Request) (Sessio
 	return Session{}, Participant{}, false
 }
 
-// personal shows a Participant their own Wish and Exclusions form.
+// personal shows a Participant their own email, Wish and Exclusions form.
 func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 	sess, me, ok := a.findByPersonalLink(w, r)
 	if !ok {
@@ -60,9 +61,10 @@ func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 	renderPersonal(w, r, http.StatusOK, sess, me, nil)
 }
 
-// submitPersonal stores the Participant's Wish and Exclusions, marks them as
-// submitted and remembers the request's language. It can be repeated to edit.
-// Exclusions that would leave no valid Draw are rejected and nothing is saved.
+// submitPersonal stores the Participant's email, Wish and Exclusions, marks
+// them as submitted and remembers the request's language. It can be repeated
+// to edit. A changed email address is sent the links email again (see
+// sendLinks), an unchanged one nothing. Exclusions that would leave no valid Draw are rejected and nothing is saved.
 func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	sess, me, ok := a.findByPersonalLink(w, r)
 	if !ok {
@@ -76,7 +78,10 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	emailChanged := false
+	me.Email = strings.TrimSpace(r.PostForm.Get("email"))
 	me.Wish = strings.TrimSpace(r.PostForm.Get("wish"))
+	me.Lang = languageFor(r)
 	me.Exclusions = nil
 	for _, o := range others(sess, me) {
 		if slices.Contains(r.PostForm["exclude"], o) {
@@ -84,6 +89,10 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	t := messagesFor(r)
+	if !plausibleEmail(me.Email) {
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_bad_email"]})
+		return
+	}
 	if key := wishError(me.Wish); key != "" {
 		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]})
 		return
@@ -91,7 +100,8 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 
 	drawn, err := a.submit(sess.Hash, func(s *Session) error {
 		p := s.participant(me.Hash)
-		p.Wish, p.Exclusions, p.Submitted, p.Lang = me.Wish, me.Exclusions, true, languageFor(r)
+		emailChanged = p.Email != me.Email
+		p.Email, p.Wish, p.Exclusions, p.Submitted, p.Lang = me.Email, me.Wish, me.Exclusions, true, me.Lang
 		return nil
 	})
 	switch {
@@ -102,6 +112,12 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
+		if emailChanged {
+			if err := a.sendLinks(sess, me); err != nil {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+		}
 		if drawn != nil {
 			if err := a.sendDrawEmails(*drawn); err != nil {
 				http.Error(w, "internal error", http.StatusInternalServerError)
@@ -189,7 +205,7 @@ func otherViews(sess Session, me Participant) []otherView {
 }
 
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
-	view := personalView{T: messagesFor(r), Name: me.Name, Wish: me.Wish, Errors: errs}
+	view := personalView{T: messagesFor(r), Name: me.Name, Email: me.Email, Wish: me.Wish, Errors: errs}
 	if sess.State == stateDrawn {
 		view.Drawn, view.Recipient = true, me.Recipient
 		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish
