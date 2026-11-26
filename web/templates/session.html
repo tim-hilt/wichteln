@@ -20,6 +20,10 @@
             <input type="hidden" name="participant" value="{{.Name}}">
             <button class="secondary">{{$.T.resend}}</button>
           </form>{{end}}
+          {{if and .Hash (not .Organizer)}}<form method="post" action="/session/{{$.Session.Hash}}/release">
+            <input type="hidden" name="participant" value="{{.Name}}">
+            <button class="secondary">{{$.T.release}}</button>
+          </form>{{end}}
         </div>
       </li>
       {{end}}
