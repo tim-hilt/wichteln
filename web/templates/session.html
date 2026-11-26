@@ -1,7 +1,11 @@
 {{template "header" .}}
+    {{if eq .Session.State "Drawn"}}
+    <p>{{.T.drawn}}</p>
+    {{else}}
     <table>
       {{range .Session.Participants}}
       <tr><td>{{.Name}}</td><td>{{.Email}}</td><td>{{if .Submitted}}{{$.T.status_submitted}}{{else}}{{$.T.status_pending}}{{end}}</td></tr>
       {{end}}
     </table>
+    {{end}}
 {{template "footer" .}}

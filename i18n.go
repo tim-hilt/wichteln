@@ -46,6 +46,11 @@ var catalog = map[string]Messages{
 		"err_bad_email":       "Please enter a valid email address for everyone.",
 
 		"invite_subject": "Invitation to Secret Santa",
+		"drawn":          "Drawn ✓",
+		"draw_gives_to":  "You give a present to %s.",
+		"draw_wish":      "Their wish",
+		"draw_subject":   "Your Secret Santa assignment",
+		"draw_body":      "Hello %s,\n\nthe Draw is done! You give a present to %s.\n\nTheir wish:\n%s\n",
 		"invite_body":    "Hello %s,\n\nyou have been invited to a Secret Santa round. Your Personal link:\n\n%s\n",
 	},
 	"de": {
@@ -80,6 +85,11 @@ var catalog = map[string]Messages{
 		"err_bad_email":       "Bitte für alle eine gültige E-Mail-Adresse eintragen.",
 
 		"invite_subject": "Einladung zum Wichteln",
+		"drawn":          "Ausgelost ✓",
+		"draw_gives_to":  "Du beschenkst %s.",
+		"draw_wish":      "Der Wunsch",
+		"draw_subject":   "Deine Wichtel-Zuteilung",
+		"draw_body":      "Hallo %s,\n\ndie Auslosung ist erfolgt! Du beschenkst %s.\n\nDer Wunsch:\n%s\n",
 		"invite_body":    "Hallo %s,\n\ndu wurdest zu einer Wichtelrunde eingeladen. Dein persönlicher Link:\n\n%s\n",
 	},
 }

@@ -2,6 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strings"
@@ -19,6 +22,11 @@ type personalView struct {
 	Wish   string
 	Others []otherView
 	Errors []string
+
+	// After the Draw the page is read-only and shows the Assignment.
+	Drawn          bool
+	Recipient      string
+	RecipientsWish string
 }
 
 // otherView is one checkbox: another Participant who can be excluded.
@@ -62,6 +70,10 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if sess.State == stateDrawn {
+		http.Error(w, "already drawn", http.StatusConflict)
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
@@ -83,25 +95,65 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The feasibility check and the save happen in one store update, so two
-	// simultaneous Submissions can't each pass the check on their own and
-	// together leave no valid Draw.
+	// The feasibility check, the save and the Draw happen in one store update,
+	// so two simultaneous Submissions can't each pass the check on their own
+	// and together leave no valid Draw, and the last ones can't Draw twice.
+	seed := make([]byte, 32)
+	if _, err := io.ReadFull(a.random, seed); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	var drawn *Session
 	err := a.store.Update(sess.Hash, func(s *Session) error {
+		if s.State == stateDrawn {
+			return errAlreadyDrawn
+		}
 		p := s.participant(me.Hash)
 		p.Wish, p.Exclusions, p.Submitted, p.Lang = me.Wish, me.Exclusions, true, languageFor(r)
 		if !DrawPossible(s.Participants) {
 			return ErrNoDraw
 		}
+		if s.allSubmitted() {
+			if err := drawSession(s, rand.New(rand.NewChaCha8([32]byte(seed)))); err != nil {
+				return err
+			}
+			drawn = s
+		}
 		return nil
 	})
 	switch {
+	case errors.Is(err, errAlreadyDrawn):
+		http.Error(w, "already drawn", http.StatusConflict)
 	case errors.Is(err, ErrNoDraw):
 		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
 	case err != nil:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
+		if drawn != nil {
+			err = a.sendDrawEmails(*drawn)
+		}
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
 	}
+}
+
+// errAlreadyDrawn is returned from a store update that finds the Draw done.
+var errAlreadyDrawn = errors.New("session already drawn")
+
+// sendDrawEmails tells every Participant, in the language of their last
+// Submission, whom they give to and that person's Wish.
+func (a *app) sendDrawEmails(s Session) error {
+	for _, p := range s.Participants {
+		t := catalog[p.Lang]
+		body := fmt.Sprintf(t["draw_body"], p.Name, p.Recipient, s.participantNamed(p.Recipient).Wish)
+		if err := a.mailer.Send(p.Email, t["draw_subject"], body); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // others returns the names of all Participants except me.
@@ -117,6 +169,10 @@ func others(sess Session, me Participant) []string {
 
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
 	view := personalView{T: messagesFor(r), Name: me.Name, Wish: me.Wish, Errors: errs}
+	if sess.State == stateDrawn {
+		view.Drawn, view.Recipient = true, me.Recipient
+		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish
+	}
 	for _, name := range others(sess, me) {
 		view.Others = append(view.Others, otherView{name, slices.Contains(me.Exclusions, name)})
 	}

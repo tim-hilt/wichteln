@@ -13,7 +13,10 @@ import (
 )
 
 // Session states.
-const stateOpen = "Open"
+const (
+	stateOpen  = "Open"
+	stateDrawn = "Drawn"
+)
 
 // Session is one Secret Santa round as persisted.
 type Session struct {
@@ -34,6 +37,27 @@ type Participant struct {
 	Exclusions []string // names of the Participants this one must not give to
 	Submitted  bool
 	Lang       string // language of the last submission, used for the Draw email
+	Recipient  string // name of the Participant this one gives to; set by the Draw
+}
+
+// participantNamed returns the Participant with the given name, or nil.
+func (s *Session) participantNamed(name string) *Participant {
+	for i := range s.Participants {
+		if s.Participants[i].Name == name {
+			return &s.Participants[i]
+		}
+	}
+	return nil
+}
+
+// allSubmitted reports whether every Participant has made a Submission.
+func (s *Session) allSubmitted() bool {
+	for _, p := range s.Participants {
+		if !p.Submitted {
+			return false
+		}
+	}
+	return true
 }
 
 // participant returns the Participant with the given Personal link hash, or

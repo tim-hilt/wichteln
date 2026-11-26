@@ -1,6 +1,11 @@
 {{template "header" .}}
     <h2>{{printf .T.greeting .Name}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
+    {{if .Drawn}}
+    <p>{{printf .T.draw_gives_to .Recipient}}</p>
+    <p>{{.T.draw_wish}}:</p>
+    <blockquote>{{.RecipientsWish}}</blockquote>
+    {{else}}
     <form method="post">
       <label>{{.T.wish}} <textarea name="wish" required rows="5">{{.Wish}}</textarea></label>
       <fieldset>
@@ -11,4 +16,5 @@
       </fieldset>
       <button>{{.T.submit_wish}}</button>
     </form>
+    {{end}}
 {{template "footer" .}}

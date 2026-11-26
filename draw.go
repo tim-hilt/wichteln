@@ -9,6 +9,15 @@ import (
 // Exclusions, admit at least one valid Draw. Exclusions naming unknown
 // Participants are ignored.
 func DrawPossible(participants []Participant) bool {
+	// Feasibility does not depend on the randomness, so any fixed seed works.
+	_, err := drawParticipants(participants, rand.New(rand.NewPCG(0, 0)))
+	return err == nil
+}
+
+// drawParticipants runs Draw for the Participants, mapping their Exclusions
+// (by name) to indices. The result maps each giver's index to the index of
+// their recipient.
+func drawParticipants(participants []Participant, rng *rand.Rand) ([]int, error) {
 	index := map[string]int{}
 	for i, p := range participants {
 		index[p.Name] = i
@@ -21,9 +30,21 @@ func DrawPossible(participants []Participant) bool {
 			}
 		}
 	}
-	// Feasibility does not depend on the randomness, so any fixed seed works.
-	_, err := Draw(len(participants), excluded, rand.New(rand.NewPCG(0, 0)))
-	return err == nil
+	return Draw(len(participants), excluded, rng)
+}
+
+// drawSession performs the Draw: it sets every Participant's Recipient and
+// the Session's state to Drawn. On ErrNoDraw the Session is left unchanged.
+func drawSession(s *Session, rng *rand.Rand) error {
+	recipients, err := drawParticipants(s.Participants, rng)
+	if err != nil {
+		return err
+	}
+	for giver, recipient := range recipients {
+		s.Participants[giver].Recipient = s.Participants[recipient].Name
+	}
+	s.State = stateDrawn
+	return nil
 }
 
 // ErrNoDraw reports that no set of Assignments satisfies the Exclusions.
