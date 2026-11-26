@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -21,9 +22,9 @@ func (a *app) findByJoinLink(w http.ResponseWriter, r *http.Request) (Session, b
 	sess, ok, err := a.store.LoadByJoinLink(r.PathValue("hash"))
 	switch {
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 	case !ok:
-		render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": messagesFor(r)})
+		renderNotFound(w, r)
 	}
 	return sess, ok && err == nil
 }
@@ -75,7 +76,7 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	if me.Hash, err = newHash(a.random); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 		return
 	}
 	drawn, err := a.submit(sess.Hash, func(s *Session) error {
@@ -94,14 +95,14 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrNoDraw):
 		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 	default:
 		// The Join is saved: attempt every email even if one fails.
-		if err := errors.Join(a.sendJoinConfirmation(me), a.sendDrawEmails(drawn)); err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+		if err := errors.Join(a.sendJoinConfirmation(me), a.notifyOrganizer(sess, me), a.sendDrawEmails(drawn)); err != nil {
+			internalError(w)
 			return
 		}
-		http.Redirect(w, r, "/"+me.Hash+"", http.StatusSeeOther)
+		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
 	}
 }
 
@@ -109,6 +110,12 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 func (a *app) sendJoinConfirmation(p Participant) error {
 	t := catalog[p.Lang]
 	return a.send(p, t["join_subject"], mailView{T: t, Intro: t["join_intro"], Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
+}
+
+// notifyOrganizer emails the Organizer, in their language, who has joined.
+func (a *app) notifyOrganizer(sess Session, joiner Participant) error {
+	t := catalog[sess.Lang]
+	return a.send(*sess.organizer(), fmt.Sprintf(t["joined_subject"], joiner.Name), mailView{T: t, Intro: fmt.Sprintf(t["joined_intro"], joiner.Name)})
 }
 
 func renderJoinSelection(w http.ResponseWriter, r *http.Request, status int, sess Session, errMsg string) {

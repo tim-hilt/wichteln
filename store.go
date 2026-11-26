@@ -52,6 +52,9 @@ func (s *Session) participantNamed(name string) *Participant {
 	return nil
 }
 
+// organizer returns the Organizer, who is always the first Participant.
+func (s *Session) organizer() *Participant { return &s.Participants[0] }
+
 // allSubmitted reports whether every Participant has made a Submission.
 func (s *Session) allSubmitted() bool {
 	for _, p := range s.Participants {

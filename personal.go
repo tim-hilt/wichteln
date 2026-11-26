@@ -47,13 +47,13 @@ func (a *app) findByPersonalLink(w http.ResponseWriter, r *http.Request) (Sessio
 	hash := r.PathValue("hash")
 	sess, ok, err := a.store.LoadByPersonalLink(hash)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 		return Session{}, Participant{}, false
 	}
 	if ok {
 		return sess, *sess.participant(hash), true
 	}
-	render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": messagesFor(r)})
+	renderNotFound(w, r)
 	return Session{}, Participant{}, false
 }
 
@@ -72,7 +72,7 @@ func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			internalError(w)
 			return
 		}
 	}
@@ -118,11 +118,11 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errAlreadyDrawn):
 		http.Error(w, "already drawn", http.StatusConflict)
 	case errors.Is(err, errReleased):
-		render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": t})
+		renderNotFound(w, r)
 	case errors.Is(err, ErrNoDraw):
 		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]}, false)
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 	default:
 		// The Submission is saved: attempt every email even if one fails.
 		var linksErr error
@@ -130,7 +130,7 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 			linksErr = a.sendLinks(sess, me)
 		}
 		if err := errors.Join(linksErr, a.sendDrawEmails(drawn)); err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			internalError(w)
 			return
 		}
 		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)

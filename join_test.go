@@ -138,7 +138,7 @@ func TestJoinRedirectsToWorkingPersonalLinkAndConfirmsInJoinersLanguage(t *testi
 		t.Errorf("personal page:\n%s", page)
 	}
 	sent := c.mailer.sent[before:]
-	if len(sent) != 1 || sent[0].to != "ben@x.de" || !strings.Contains(sent[0].body, "Hallo Ben") || !strings.Contains(sent[0].body, "http://example.test"+loc) || !strings.Contains(sent[0].body, "ausgelost") {
+	if len(sent) != 2 || sent[0].to != "ben@x.de" || !strings.Contains(sent[0].body, "Hallo Ben") || !strings.Contains(sent[0].body, "http://example.test"+loc) || !strings.Contains(sent[0].body, "ausgelost") {
 		t.Errorf("unexpected mails: %+v", sent)
 	}
 }
@@ -187,5 +187,21 @@ func TestJoinLinkSurvivesRestart(t *testing.T) {
 	loc := rec.Header().Get("Location")
 	if page := newClient(t, dir).do("GET", loc, "en", nil); page.Code != 200 {
 		t.Errorf("personal link of join not persisted: %d", page.Code)
+	}
+}
+
+func TestJoinEmailsOrganizerTheJoinedName(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, join := openJoinSession(t, c)
+	before := len(c.mailer.sent)
+	c.do("POST", join, "de", joinForm("Ben", "ben@x.de", "w"))
+	var got []sentMail
+	for _, m := range c.mailer.sent[before:] {
+		if m.to == "anna@x.de" {
+			got = append(got, m)
+		}
+	}
+	if len(got) != 1 || !strings.Contains(got[0].body, "Ben") {
+		t.Fatalf("want one mail naming Ben to the Organizer: %+v", got)
 	}
 }

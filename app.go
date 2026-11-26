@@ -59,12 +59,21 @@ func (a *app) welcome(w http.ResponseWriter, r *http.Request) {
 func render(w http.ResponseWriter, status int, name string, data any) {
 	var buf bytes.Buffer
 	if err := templates.ExecuteTemplate(&buf, name, data); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	buf.WriteTo(w)
+}
+
+func internalError(w http.ResponseWriter) {
+	http.Error(w, "internal error", http.StatusInternalServerError)
+}
+
+// renderNotFound shows the 404 page for an unknown Personal or Join link.
+func renderNotFound(w http.ResponseWriter, r *http.Request) {
+	render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": messagesFor(r)})
 }
 
 // hashFrom extracts the hash from what a user pasted: either a bare hash or a
@@ -79,9 +88,6 @@ func hashFrom(input string) string {
 // openSession redirects to the Session whose hash or link was pasted.
 func (a *app) openSession(w http.ResponseWriter, r *http.Request) {
 	a.open(w, r, func(hash string) (string, bool, error) {
-		if !validHash(hash) {
-			return "", false, nil
-		}
 		_, ok, err := a.store.Load(hash)
 		return "/session/" + hash, ok, err
 	})
@@ -111,7 +117,7 @@ func (a *app) open(w http.ResponseWriter, r *http.Request, find func(hash string
 	path, ok, err := find(hashFrom(input))
 	switch {
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 	case !ok:
 		t := messagesFor(r)
 		render(w, http.StatusNotFound, "welcome.html", map[string]any{"T": t, "Error": t["not_found"], "Input": input, "Form": r.URL.Path})

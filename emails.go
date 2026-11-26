@@ -15,15 +15,16 @@ type mailView struct {
 	T        Messages
 	Greeting string
 	Intro    string     // paragraphs separated by a blank line
-	Paras    []string   // Intro split into paragraphs, set by send
 	Links    []mailLink // zero or more, each shown as a button
 	Wish     string     // optional, the recipient's Wish
 }
 
+// Paras returns Intro split into paragraphs.
+func (v mailView) Paras() []string { return strings.Split(v.Intro, "\n\n") }
+
 // send emails the view to the Participant, greeting them by name.
 func (a *app) send(p Participant, subject string, v mailView) error {
 	v.Greeting = fmt.Sprintf(v.T["mail_greeting"], p.Name)
-	v.Paras = strings.Split(v.Intro, "\n\n")
 	var text strings.Builder
 	fmt.Fprintf(&text, "%s\n\n%s\n", v.Greeting, v.Intro)
 	for _, l := range v.Links {

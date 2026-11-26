@@ -23,7 +23,7 @@ type rowView struct {
 func (a *app) createSessionLink(w http.ResponseWriter, r *http.Request) {
 	hash, err := newHash(a.random)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 		return
 	}
 	http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
@@ -40,7 +40,7 @@ func (a *app) session(w http.ResponseWriter, r *http.Request) {
 	sess, ok, err := a.store.Load(hash)
 	switch {
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 	case ok:
 		a.renderSession(w, r, http.StatusOK, sess, nil)
 	default:
@@ -78,33 +78,28 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	joinHash, err := newHash(a.random)
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+	joinHash, joinErr := newHash(a.random)
+	organizerHash, organizerErr := newHash(a.random)
+	if errors.Join(joinErr, organizerErr) != nil {
+		internalError(w)
 		return
 	}
 	sess := Session{Hash: hash, JoinHash: joinHash, State: stateOpen, Lang: languageFor(r)}
 	for i, row := range rows {
-		p := Participant{Name: row.Name, Email: row.Email, Organizer: i == 0}
-		if p.Organizer {
-			if p.Hash, err = newHash(a.random); err != nil {
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-		}
-		sess.Participants = append(sess.Participants, p)
+		sess.Participants = append(sess.Participants, Participant{Name: row.Name, Email: row.Email, Organizer: i == 0})
 	}
+	sess.organizer().Hash = organizerHash
 	switch err := a.store.Create(sess); {
 	case errors.Is(err, ErrSessionExists):
 		http.Error(w, "session already exists", http.StatusConflict)
 		return
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 		return
 	}
 
-	if err := a.sendLinks(sess, sess.Participants[0]); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+	if err := a.sendLinks(sess, *sess.organizer()); err != nil {
+		internalError(w)
 		return
 	}
 	http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
@@ -131,7 +126,7 @@ func (a *app) sendLinks(s Session, p Participant) error {
 func (a *app) resendLink(w http.ResponseWriter, r *http.Request) {
 	sess, ok, err := a.store.Load(r.PathValue("hash"))
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 		return
 	}
 	p := sess.participantNamed(r.PostFormValue("participant"))
@@ -142,7 +137,7 @@ func (a *app) resendLink(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "already drawn", http.StatusConflict)
 	default:
 		if err := a.sendLinks(sess, *p); err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			internalError(w)
 			return
 		}
 		http.Redirect(w, r, "/session/"+sess.Hash, http.StatusSeeOther)

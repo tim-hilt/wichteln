@@ -184,8 +184,8 @@ func TestFailedConfirmationEmailDoesNotStopDrawEmails(t *testing.T) {
 	if rec := c.do("POST", join, "en", joinForm("Cleo", "cleo@x.de", "c")); rec.Code != http.StatusInternalServerError {
 		t.Errorf("status %d", rec.Code)
 	}
-	if got := len(c.mailer.sent) - before; got != 2 {
-		t.Errorf("want draw mails to Anna and Ben, got %d", got)
+	if got := len(c.mailer.sent) - before; got != 3 {
+		t.Errorf("want draw mails to Anna and Ben plus the Organizer notice, got %d", got)
 	}
 }
 

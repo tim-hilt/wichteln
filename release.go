@@ -35,7 +35,7 @@ func (a *app) releaseParticipant(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errAlreadyDrawn):
 		http.Error(w, "already drawn", http.StatusConflict)
 	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		internalError(w)
 	default:
 		http.Redirect(w, r, "/session/"+r.PathValue("hash"), http.StatusSeeOther)
 	}
