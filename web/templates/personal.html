@@ -1,4 +1,9 @@
 {{template "header" .}}
+    {{if .Joined}}
+    <h2>✅ {{printf .T.joined_title .Name}}</h2>
+    <p class="success">{{.T.joined_text}}</p>
+    <p>{{printf .T.joined_email_sent .Email}}</p>
+    {{else}}
     <h2>{{printf .T.greeting .Name}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     {{if .Drawn}}
@@ -12,5 +17,6 @@
       {{template "submission_fields" .}}
       <div class="actions"><button>{{.T.submit_wish}}</button></div>
     </form>
+    {{end}}
     {{end}}
 {{template "footer" .}}

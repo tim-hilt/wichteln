@@ -10,7 +10,7 @@ import (
 func TestResendToJoinedParticipantSendsConfirmationInTheirLanguage(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, join := openJoinSession(t, c)
-	loc := c.do("POST", join, "de", joinForm("Cleo", "cleo@x.de", "w")).Header().Get("Location")
+	loc := strings.TrimSuffix(c.do("POST", join, "de", joinForm("Cleo", "cleo@x.de", "w")).Header().Get("Location"), "?joined")
 	before := len(c.mailer.sent)
 	// The request's language (en) is not used, Cleo's (de) is.
 	if rec := c.do("POST", session+"/resend", "en", url.Values{"participant": {"Cleo"}}); rec.Code != http.StatusSeeOther {

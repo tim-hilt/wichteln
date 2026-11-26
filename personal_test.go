@@ -56,7 +56,7 @@ func openSession(t *testing.T, c *client) (session string, personal map[string]s
 		if rec.Code != http.StatusSeeOther {
 			t.Fatalf("join %s: status %d", n, rec.Code)
 		}
-		personal[n] = rec.Header().Get("Location")
+		personal[n] = strings.TrimSuffix(rec.Header().Get("Location"), "?joined")
 	}
 	return session, personal
 }
@@ -241,7 +241,7 @@ func TestUnknownAndSelfExclusionsAreIgnored(t *testing.T) {
 func TestPrivacyOfWishesAndExclusions(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, join, anna := createAnnaSession(t, c, "en") // Cleo stays unjoined: no Draw
-	ben := c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b")).Header().Get("Location")
+	ben := strings.TrimSuffix(c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b")).Header().Get("Location"), "?joined")
 	p := map[string]string{"Anna": anna, "Ben": ben}
 	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "Geheimwunsch", "Ben"))
 

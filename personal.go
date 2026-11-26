@@ -22,6 +22,9 @@ type personalView struct {
 	Others []otherView
 	Errors []string
 
+	// Joined shows the confirmation of a Join instead of the form.
+	Joined bool
+
 	// After the Draw the page is read-only and shows the Assignment.
 	Drawn          bool
 	Recipient      string
@@ -56,7 +59,7 @@ func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	renderPersonal(w, r, http.StatusOK, sess, me, nil)
+	renderPersonal(w, r, http.StatusOK, sess, me, nil, r.URL.Query().Has("joined"))
 }
 
 // submitPersonal stores the Participant's email, Wish and Exclusions, marks
@@ -80,7 +83,7 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	t := messagesFor(r)
 	me = submissionFrom(r, sess, me)
 	if key := submissionError(me); key != "" {
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]})
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]}, false)
 		return
 	}
 
@@ -100,7 +103,7 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errReleased):
 		render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": t})
 	case errors.Is(err, ErrNoDraw):
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]}, false)
 	case err != nil:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
@@ -226,8 +229,9 @@ func submissionView(r *http.Request, sess Session, me Participant, errs []string
 	return personalView{T: messagesFor(r), Name: me.Name, Email: me.Email, Wish: me.Wish, Others: otherViews(sess, me), Errors: errs}
 }
 
-func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
+func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string, joined bool) {
 	view := submissionView(r, sess, me, errs)
+	view.Joined = joined && sess.State != stateDrawn
 	if sess.State == stateDrawn {
 		view.Drawn, view.Recipient = true, me.Recipient
 		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish

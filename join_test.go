@@ -122,14 +122,24 @@ func TestJoinRedirectsToWorkingPersonalLinkAndConfirmsInJoinersLanguage(t *testi
 	before := len(c.mailer.sent)
 	rec := c.do("POST", join, "de", joinForm("Ben", "ben@x.de", "Socken"))
 	loc := rec.Header().Get("Location")
-	if rec.Code != http.StatusSeeOther || !regexp.MustCompile(`^/[a-z2-7]{26}$`).MatchString(loc) {
+	if rec.Code != http.StatusSeeOther || !regexp.MustCompile(`^/[a-z2-7]{26}\?joined$`).MatchString(loc) {
 		t.Fatalf("status %d, location %q", rec.Code, loc)
 	}
-	if page := c.do("GET", loc, "en", nil).Body.String(); !strings.Contains(page, "Socken") || !strings.Contains(page, "Ben") {
+	page := c.do("GET", loc, "en", nil).Body.String()
+	for _, want := range []string{"You&#39;re in, Ben!", "ben@x.de"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("confirmation page lacks %q:\n%s", want, page)
+		}
+	}
+	if strings.Contains(page, "<form") {
+		t.Errorf("confirmation page has a form:\n%s", page)
+	}
+	loc = strings.TrimSuffix(loc, "?joined")
+	if page := c.do("GET", loc, "en", nil).Body.String(); !strings.Contains(page, "Socken") || !strings.Contains(page, "<form") {
 		t.Errorf("personal page:\n%s", page)
 	}
 	sent := c.mailer.sent[before:]
-	if len(sent) != 1 || sent[0].to != "ben@x.de" || !strings.Contains(sent[0].body, "Hallo Ben") || !strings.Contains(sent[0].body, "http://example.test"+loc) {
+	if len(sent) != 1 || sent[0].to != "ben@x.de" || !strings.Contains(sent[0].body, "Hallo Ben") || !strings.Contains(sent[0].body, "http://example.test"+loc) || !strings.Contains(sent[0].body, "ausgelost") {
 		t.Errorf("unexpected mails: %+v", sent)
 	}
 }

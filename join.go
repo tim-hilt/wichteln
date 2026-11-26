@@ -45,7 +45,7 @@ func (a *app) joinPage(w http.ResponseWriter, r *http.Request) {
 
 // submitJoin Joins the name sent in the "name" field with the first
 // Submission: email, Wish and Exclusions. It stores them, gives the name its
-// Personal link, redirects to it and emails the joiner a confirmation in
+// Personal link, redirects to its confirmation and emails the joiner a confirmation in
 // their language. Two Joins of one name can't both succeed: the later one
 // gets 409.
 func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +101,7 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
+		http.Redirect(w, r, "/"+me.Hash+"?joined", http.StatusSeeOther)
 	}
 }
 
