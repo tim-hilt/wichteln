@@ -1,7 +1,7 @@
 {{template "header" .}}
     <table>
       {{range .Session.Participants}}
-      <tr><td>{{.Name}}</td><td>{{.Email}}</td><td>{{$.T.status_pending}}</td></tr>
+      <tr><td>{{.Name}}</td><td>{{.Email}}</td><td>{{if .Submitted}}{{$.T.status_submitted}}{{else}}{{$.T.status_pending}}{{end}}</td></tr>
       {{end}}
     </table>
 {{template "footer" .}}

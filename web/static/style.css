@@ -7,3 +7,6 @@ button { padding: .5rem 1rem; }
 .row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
 .error { color: #b00020; }
 td { padding: .25rem .5rem; }
+textarea { display: block; width: 100%; padding: .5rem; box-sizing: border-box; }
+fieldset label { display: flex; gap: .5rem; align-items: center; }
+fieldset input { width: auto; }

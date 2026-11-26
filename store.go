@@ -29,6 +29,11 @@ type Participant struct {
 	Email     string
 	Hash      string // Personal link hash
 	Organizer bool
+
+	Wish       string
+	Exclusions []string // names of the Participants this one must not give to
+	Submitted  bool
+	Lang       string // language of the last submission, used for the Draw email
 }
 
 var (
@@ -105,11 +110,37 @@ func (s *Store) Load(hash string) (sess Session, ok bool, err error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.load(hash)
+}
+
+// load is Load for callers already holding s.mu.
+func (s *Store) load(hash string) (sess Session, ok bool, err error) {
 	sess, err = readSession(s.path(hash))
 	if errors.Is(err, os.ErrNotExist) {
 		return Session{}, false, nil
 	}
 	return sess, err == nil, err
+}
+
+// SaveParticipant replaces the stored Participant that has p's Personal link
+// hash, leaving the rest of the Session untouched; ok is false if there is none.
+func (s *Store) SaveParticipant(p Participant) (ok bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sessionHash, found := s.sessionOf[p.Hash]
+	if !found {
+		return false, nil
+	}
+	sess, ok, err := s.load(sessionHash)
+	if !ok || err != nil {
+		return false, err
+	}
+	for i := range sess.Participants {
+		if sess.Participants[i].Hash == p.Hash {
+			sess.Participants[i] = p
+		}
+	}
+	return true, writeAtomically(s.path(sess.Hash), sess)
 }
 
 // LoadByPersonalLink returns the Session containing the Participant with the
