@@ -57,6 +57,13 @@
       "skillPath": "skills/productivity/handoff/SKILL.md",
       "computedHash": "f60a2c3688379b7a306b3a7b8dd4120eab39da44c74fa2cb62d6424935f04aa7"
     },
+    "humanizer": {
+      "source": "blader/humanizer",
+      "commit": "a32f24407364c74c812b43c15926d638bee1e072",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "6da5d71e32eb66770b4c1ebe38b7e5c271bfca6290c9248aeb8449a84dbfe914"
+    },
     "implement": {
       "source": "mattpocock/skills",
       "commit": "6f7f7831a625f040a8e06a0e7954826b87ce775a",

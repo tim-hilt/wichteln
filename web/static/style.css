@@ -33,7 +33,7 @@ header {
   border-bottom: 8px solid;
   border-image: repeating-linear-gradient(-45deg, var(--red) 0 12px, #fff 12px 24px) 8;
 }
-header h1 { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1rem; font-size: 1.75rem; line-height: 1.2; }
+header h1 { max-width: 42rem; margin: 0 auto; padding: 1.5rem 2rem; font-size: 1.75rem; line-height: 1.2; }
 header a { color: inherit; text-decoration: none; }
 
 /* Main content is a card; direct children are spaced evenly */
@@ -50,7 +50,7 @@ main > * + * { margin-top: 1.5rem; }
 main > .error + .error { margin-top: .5rem; }
 @media (max-width: 40rem) {
   main { margin: 1rem .75rem; padding: 1.25rem; }
-  header h1 { padding: 1.25rem; }
+  header h1 { padding: 1.25rem 2rem; }
   .actions button { flex: 1; }
 }
 
@@ -134,6 +134,21 @@ button.icon { padding: .5rem .75rem; }
   background: var(--bg);
 }
 .badge.done { color: var(--green); background: var(--green-light); }
+
+/* Join page: each name is a full-width tappable row */
+.participants li:has(> a) { padding: 0; }
+.participants li > a {
+  display: block;
+  padding: 1rem;
+  font-weight: 600;
+  color: var(--green);
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+.participants li > a:hover { background: var(--green-light); }
+.participants li > a:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+
+code { font-size: .9rem; overflow-wrap: anywhere; }
 
 /* Exclusion choices */
 .choices { display: grid; gap: .5rem; margin-top: .75rem; }
