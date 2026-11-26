@@ -83,7 +83,7 @@ func TestReleaseOfSubmittedParticipantNeverTriggersDraw(t *testing.T) {
 	if len(c.mailer.sent) != before {
 		t.Error("mail sent")
 	}
-	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "Drawn ✓") {
+	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "The names have been drawn.") {
 		t.Error("drawn")
 	}
 }

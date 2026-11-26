@@ -93,7 +93,7 @@ func TestPersonalLinkGreetsByNameAndOffersOtherParticipants(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(body, "Ben") {
 		t.Fatalf("status %d, body:\n%s", rec.Code, body)
 	}
-	for _, want := range []string{`value="Anna"`, `value="Cleo"`, "only restrict whom you give to"} {
+	for _, want := range []string{`value="Anna"`, `value="Cleo"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -108,7 +108,7 @@ func TestUnknownPersonalLinkIs404InUserLanguage(t *testing.T) {
 	openSession(t, c)
 	for _, path := range []string{"/" + strings.Repeat("a", 26), "/nonsense"} {
 		rec := c.do("GET", path, "de", nil)
-		if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "Nicht gefunden") {
+		if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "Dieser Link ist ungültig") {
 			t.Errorf("%s: status %d, body %q", path, rec.Code, rec.Body.String())
 		}
 	}
@@ -205,7 +205,7 @@ func TestImpossibleExclusionsAreRejectedAndNothingIsSaved(t *testing.T) {
 
 	// Ben->Anna and Cleo->Ben are forced, so Anna may only give to Cleo.
 	// Excluding Cleo leaves no valid Draw.
-	for lang, want := range map[string]string{"en": "no valid Draw", "de": "keine gültige Auslosung"} {
+	for lang, want := range map[string]string{"en": "no draw is possible", "de": "keine Auslosung möglich"} {
 		rec := c.do("POST", p["Anna"], lang, c.personalForm(p["Anna"], "Socken", "Cleo"))
 		body := rec.Body.String()
 		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, want) {
@@ -353,7 +353,7 @@ func TestOrganizerSeesJoinConfirmationAfterFirstSubmission(t *testing.T) {
 		t.Errorf("first visit should show the form:\n%s", page)
 	}
 	rec := c.do("POST", anna, "en", url.Values{"email": {"anna@x.de"}, "wish": {"w"}})
-	if page := c.do("GET", rec.Header().Get("Location"), "en", nil).Body.String(); !strings.Contains(page, "You&#39;re in, Anna!") || !strings.Contains(page, "You added your wishes.") || strings.Contains(page, "confirmation mail") {
+	if page := c.do("GET", rec.Header().Get("Location"), "en", nil).Body.String(); !strings.Contains(page, "You&#39;re in, Anna!") || !strings.Contains(page, "You added your wish.") || strings.Contains(page, "confirmation email") {
 		t.Errorf("no organizer confirmation after submission:\n%s", page)
 	}
 	if page := c.do("GET", anna, "en", nil).Body.String(); !strings.Contains(page, "<form") {

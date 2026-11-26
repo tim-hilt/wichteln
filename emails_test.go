@@ -35,3 +35,17 @@ func TestEmailWithoutLinksHasNoLinkSection(t *testing.T) {
 		t.Errorf("unexpected link:\n%s", m.sent[0].html)
 	}
 }
+
+func TestEmailIntroKeepsParagraphs(t *testing.T) {
+	m := &fakeMailer{}
+	a := &app{mailer: m}
+	if err := a.send(Participant{Name: "Anna", Email: "a@x.de"}, "Subj", mailView{T: catalog["en"], Intro: "One.\n\nTwo."}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.sent[0].body, "One.\n\nTwo.") {
+		t.Errorf("text lost paragraphs:\n%s", m.sent[0].body)
+	}
+	if !strings.Contains(m.sent[0].html, ">One.</p>") || !strings.Contains(m.sent[0].html, ">Two.</p>") {
+		t.Errorf("html paragraphs missing:\n%s", m.sent[0].html)
+	}
+}

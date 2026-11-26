@@ -34,7 +34,7 @@ func TestOpenFromWelcomePage(t *testing.T) {
 		for _, input := range []string{unknown, "http://example.test/session/" + unknown, "garbage", anna[1:] + "x"} {
 			rec := c.do("POST", path, "de", url.Values{"hash": {input}})
 			body := rec.Body.String()
-			if rec.Code != 404 || !strings.Contains(body, "Nicht gefunden") || !strings.Contains(body, `value="`+input+`"`) {
+			if rec.Code != 404 || !strings.Contains(body, "Dieser Link ist ungültig") || !strings.Contains(body, `value="`+input+`"`) {
 				t.Errorf("%s %q: status %d, body:\n%s", path, input, rec.Code, body)
 			}
 		}
@@ -63,7 +63,7 @@ func TestJoinFromWelcomePage(t *testing.T) {
 	for _, input := range []string{"aaaaaaaaaaaaaaaaaaaaaaaaaa", "garbage"} {
 		rec := c.do("POST", "/open-join", "de", url.Values{"hash": {input}})
 		body := rec.Body.String()
-		if rec.Code != 404 || !strings.Contains(body, "Nicht gefunden") || !strings.Contains(body, `value="`+input+`"`) {
+		if rec.Code != 404 || !strings.Contains(body, "Dieser Link ist ungültig") || !strings.Contains(body, `value="`+input+`"`) {
 			t.Errorf("%q: status %d, body:\n%s", input, rec.Code, body)
 		}
 	}
@@ -85,7 +85,7 @@ func TestJoinFromWelcomePageAfterDrawRedirectsToClosedPage(t *testing.T) {
 	if rec.Code != 303 || rec.Header().Get("Location") != join {
 		t.Fatalf("status %d, location %q", rec.Code, rec.Header().Get("Location"))
 	}
-	if body := c.do("GET", join, "en", nil).Body.String(); !strings.Contains(body, "Joining is closed") {
+	if body := c.do("GET", join, "en", nil).Body.String(); !strings.Contains(body, "You can no longer join") {
 		t.Errorf("want closed page:\n%s", body)
 	}
 }

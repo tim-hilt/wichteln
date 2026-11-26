@@ -29,11 +29,11 @@ func TestNoDrawUntilLastSubmission(t *testing.T) {
 	if len(c.mailer.sent) != before {
 		t.Errorf("mail sent before last Submission")
 	}
-	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "Drawn") {
+	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "names have been drawn") {
 		t.Errorf("drawn too early:\n%s", page)
 	}
 	c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "a"))
-	if page := c.do("GET", session, "en", nil).Body.String(); !strings.Contains(page, "Drawn") {
+	if page := c.do("GET", session, "en", nil).Body.String(); !strings.Contains(page, "names have been drawn") {
 		t.Errorf("not drawn after last Submission:\n%s", page)
 	}
 }
@@ -92,7 +92,7 @@ func TestFullFlowDrawSendsValidAssignmentsToEveryone(t *testing.T) {
 			}
 		}
 		status := c.do("GET", session, "en", nil).Body.String()
-		if !strings.Contains(status, "Drawn ✓") || strings.Contains(status, "-wish") || strings.Contains(status, "checked") {
+		if !strings.Contains(status, "The names have been drawn.") || strings.Contains(status, "-wish") || strings.Contains(status, "checked") {
 			t.Fatalf("session page after draw:\n%s", status)
 		}
 	}

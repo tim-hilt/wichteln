@@ -221,7 +221,7 @@ func TestValidationErrorsKeepRows(t *testing.T) {
 	}{
 		{"too few", form("anna@x.de", "Anna", "Ben"), "at least 3"},
 		{"empty name", form("anna@x.de", "Anna", " ", "Cleo"), "Names must not be empty"},
-		{"duplicate name", form("anna@x.de", "Anna", "ANNA", "Cleo"), "must be unique"},
+		{"duplicate name", form("anna@x.de", "Anna", "ANNA", "Cleo"), "Each name must be different"},
 		{"bad email", form("anna-at-x", "Anna", "Ben", "Cleo"), "valid email"},
 		{"no email", form("", "Anna", "Ben", "Cleo"), "valid email"},
 	}

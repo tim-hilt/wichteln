@@ -111,7 +111,7 @@ func TestJoinRejectsInfeasibleExclusions(t *testing.T) {
 	// Cleo excludes everyone but Anna; Ben joining and excluding Anna leaves no Draw.
 	c.do("POST", join, "en", joinForm("Cleo", "cleo@x.de", "w", "Ben"))
 	rec := c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "w", "Cleo", "Anna"))
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "no valid Draw") {
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "no draw is possible") {
 		t.Errorf("status %d:\n%s", rec.Code, rec.Body.String())
 	}
 }
@@ -168,7 +168,7 @@ func TestLastJoinTriggersDrawToJoinedAddressesThenJoiningIsClosed(t *testing.T) 
 	if !draw["anna@x.de"] || !draw["ben@x.de"] || !draw["cleo@x.de"] {
 		t.Errorf("draw mails: %v", draw)
 	}
-	if body := c.do("GET", join, "en", nil).Body.String(); !strings.Contains(body, "closed") || strings.Contains(body, "Cleo") {
+	if body := c.do("GET", join, "en", nil).Body.String(); !strings.Contains(body, "can no longer join") || strings.Contains(body, "Cleo") {
 		t.Errorf("want closed page:\n%s", body)
 	}
 	if rec := c.do("POST", join, "en", joinForm("Cleo", "z@x.de", "w")); rec.Code != http.StatusConflict {

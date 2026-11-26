@@ -22,15 +22,17 @@
           <tr>
             <td style="padding:32px;">
               <p style="margin:0 0 16px;">{{.Greeting}}</p>
-              <p style="margin:0;">{{.Intro}}</p>
+              {{- range .Paras}}
+              <p style="margin:0 0 16px;">{{.}}</p>
+              {{- end}}
               {{- range .Links}}
-              <p style="margin:24px 0 0;">
+              <p style="margin:8px 0 0;">
                 <a href="{{.URL}}" style="display:inline-block;padding:10px 20px;font-weight:600;color:#ffffff;background:#b3261e;border-radius:10px;text-decoration:none;">{{.Label}}</a>
               </p>
               <p style="margin:16px 0 0;font-size:14px;color:#6e655c;word-break:break-all;"><a href="{{.URL}}" style="color:#1e5631;">{{.URL}}</a></p>
               {{- end}}
               {{- if .Wish}}
-              <p style="margin:24px 0 6px;font-weight:600;">{{.T.draw_wish}}</p>
+              <p style="margin:8px 0 6px;font-weight:600;">{{.T.draw_wish}}</p>
               <div style="padding:16px 20px;white-space:pre-wrap;background:#fdf8ea;border-left:4px solid #d9a521;border-radius:10px;">{{.Wish}}</div>
               {{- end}}
             </td>

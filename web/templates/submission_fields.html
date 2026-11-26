@@ -9,7 +9,6 @@
       </div>
       <fieldset>
         <legend>{{.T.exclusions}}</legend>
-        <p class="hint">{{.T.exclusions_help}}</p>
         <div class="choices">
           {{range .Others}}<label><input type="checkbox" name="exclude" value="{{.Name}}"{{if .Excluded}} checked{{end}}> {{.Name}}</label>
           {{end}}

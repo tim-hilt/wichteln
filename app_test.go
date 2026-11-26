@@ -25,8 +25,8 @@ func get(t *testing.T, path, acceptLanguage string) string {
 }
 
 func TestWelcomePageLanguage(t *testing.T) {
-	const de = "Neue Sitzung erstellen"
-	const en = "Create a new Session"
+	const de = "Neue Wichtelrunde erstellen"
+	const en = "Create a new session"
 	tests := []struct {
 		name, header, want string
 	}{
@@ -56,7 +56,7 @@ func TestWelcomePageLanguage(t *testing.T) {
 
 func TestWelcomePageOffersFourActions(t *testing.T) {
 	body := get(t, "/", "en")
-	for _, want := range []string{"Create a new Session", "Open an existing Session", "Open a Personal link", "Join a Session"} {
+	for _, want := range []string{"Create a new session", "Open an existing session", "Open your personal link", "Join a session", "Paste the join link"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
