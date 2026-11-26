@@ -145,6 +145,34 @@ func TestWishValidation(t *testing.T) {
 	})
 }
 
+func TestImpossibleExclusionsAreRejectedAndNothingIsSaved(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session, p := openSession(t, c)
+	c.do("POST", p["Anna"], "en", wishForm("Socken", "Ben"))
+	c.do("POST", p["Ben"], "en", wishForm("Tee", "Cleo"))
+
+	// Anna->Cleo, Ben->Anna are forced, so Cleo may only give to Ben.
+	// Excluding Ben leaves no valid Draw.
+	for lang, want := range map[string]string{"en": "no valid Draw", "de": "keine gültige Auslosung"} {
+		rec := c.do("POST", p["Cleo"], lang, wishForm("Kerze", "Ben"))
+		body := rec.Body.String()
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, want) {
+			t.Fatalf("%s: status %d, body:\n%s", lang, rec.Code, body)
+		}
+		if !strings.Contains(body, "Kerze") || !regexp.MustCompile(`value="Ben"[^>]*checked`).MatchString(body) {
+			t.Errorf("%s: input not kept:\n%s", lang, body)
+		}
+	}
+
+	page := c.do("GET", p["Cleo"], "en", nil).Body.String()
+	if strings.Contains(page, "Kerze") || strings.Contains(page, "checked") {
+		t.Errorf("rejected submission was stored:\n%s", page)
+	}
+	if status := c.do("GET", session, "en", nil).Body.String(); strings.Count(status, "submitted") != 2 {
+		t.Errorf("want exactly two submitted:\n%s", status)
+	}
+}
+
 func TestValidationErrorIsLocalized(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	_, p := openSession(t, c)

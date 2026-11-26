@@ -82,6 +82,10 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_long_wish"]})
 		return
 	}
+	if !DrawPossible(withParticipant(sess.Participants, me)) {
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
+		return
+	}
 	me.Submitted = true
 	me.Lang = languageFor(r)
 	if _, err := a.store.SaveParticipant(me); err != nil {
@@ -89,6 +93,18 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
+}
+
+// withParticipant returns a copy of all with the Participant of the same Hash
+// replaced by p; the original slice is left untouched.
+func withParticipant(all []Participant, p Participant) []Participant {
+	out := slices.Clone(all)
+	for i := range out {
+		if out[i].Hash == p.Hash {
+			out[i] = p
+		}
+	}
+	return out
 }
 
 // others returns the names of all Participants except me.

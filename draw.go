@@ -6,6 +6,27 @@ import (
 	"slices"
 )
 
+// DrawPossible reports whether the Session's Participants, with their current
+// Exclusions, admit at least one valid Draw. Exclusions naming unknown
+// Participants are ignored.
+func DrawPossible(participants []Participant) bool {
+	index := map[string]int{}
+	for i, p := range participants {
+		index[p.Name] = i
+	}
+	excluded := map[int][]int{}
+	for i, p := range participants {
+		for _, name := range p.Exclusions {
+			if j, ok := index[name]; ok {
+				excluded[i] = append(excluded[i], j)
+			}
+		}
+	}
+	// Feasibility does not depend on the randomness, so any fixed seed works.
+	_, err := Draw(len(participants), excluded, rand.New(rand.NewPCG(0, 0)))
+	return err == nil
+}
+
 // ErrNoDraw reports that no set of Assignments satisfies the Exclusions.
 var ErrNoDraw = errors.New("no valid draw exists")
 
