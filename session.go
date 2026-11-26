@@ -104,7 +104,7 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 // sendInvite emails the Participant their Personal link in the Organizer's language.
 func (a *app) sendInvite(s Session, p Participant) error {
 	t := catalog[s.Lang]
-	return a.send(p, t["invite_subject"], mailView{T: t, Intro: t["invite_intro"], Link: a.baseURL + "/" + p.Hash})
+	return a.send(p, t["invite_subject"], mailView{T: t, Intro: t["invite_intro"], Links: []mailLink{{t["invite_button"], a.baseURL + "/" + p.Hash}}})
 }
 
 // correctEmail replaces a Participant's email address and sends their Personal

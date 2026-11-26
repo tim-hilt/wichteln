@@ -23,11 +23,11 @@
             <td style="padding:32px;">
               <p style="margin:0 0 16px;">{{.Greeting}}</p>
               <p style="margin:0;">{{.Intro}}</p>
-              {{- if .Link}}
+              {{- range .Links}}
               <p style="margin:24px 0 0;">
-                <a href="{{.Link}}" style="display:inline-block;padding:10px 20px;font-weight:600;color:#ffffff;background:#b3261e;border-radius:10px;text-decoration:none;">{{.T.invite_button}}</a>
+                <a href="{{.URL}}" style="display:inline-block;padding:10px 20px;font-weight:600;color:#ffffff;background:#b3261e;border-radius:10px;text-decoration:none;">{{.Label}}</a>
               </p>
-              <p style="margin:16px 0 0;font-size:14px;color:#6e655c;word-break:break-all;"><a href="{{.Link}}" style="color:#1e5631;">{{.Link}}</a></p>
+              <p style="margin:16px 0 0;font-size:14px;color:#6e655c;word-break:break-all;"><a href="{{.URL}}" style="color:#1e5631;">{{.URL}}</a></p>
               {{- end}}
               {{- if .Wish}}
               <p style="margin:24px 0 6px;font-weight:600;">{{.T.draw_wish}}</p>
