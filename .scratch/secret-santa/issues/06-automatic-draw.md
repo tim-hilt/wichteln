@@ -4,16 +4,16 @@
 
 **Blocked by:** 03, 04
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/secret-santa/spec.md` · Vocabulary: `GLOSSARY.md` · Persistence: ADR-0001
 
-- [ ] After a Submission is saved, if every Participant is submitted, the Draw runs, Assignments are persisted and the Session becomes `Drawn`, all atomically under the store lock (two simultaneous last Submissions cannot draw twice)
-- [ ] Each Participant receives one Draw email with the recipient's name and Wish, in the language from their last Submission
-- [ ] After the Draw, the Personal link shows the recipient's name and Wish read-only; Wish and Exclusions can no longer be edited (POSTs are rejected)
-- [ ] A Participant never learns who gives to them
-- [ ] After the Draw, the Session page shows only "Drawn ✓" (no Wishes, Exclusions or Assignments)
-- [ ] Seam A tests: full flow from create to Draw; Draw emails satisfy the invariants (everyone gives once and receives once, no self-Assignment, Exclusions respected) and use each Participant's language from their *last* Submission (e.g. submit in EN, edit in DE → German Draw email; this is the only Seam A coverage for the language stored in 03); post-Draw pages and locking
+- [x] After a Submission is saved, if every Participant is submitted, the Draw runs, Assignments are persisted and the Session becomes `Drawn`, all atomically under the store lock (two simultaneous last Submissions cannot draw twice)
+- [x] Each Participant receives one Draw email with the recipient's name and Wish, in the language from their last Submission
+- [x] After the Draw, the Personal link shows the recipient's name and Wish read-only; Wish and Exclusions can no longer be edited (POSTs are rejected)
+- [x] A Participant never learns who gives to them
+- [x] After the Draw, the Session page shows only "Drawn ✓" (no Wishes, Exclusions or Assignments)
+- [x] Seam A tests: full flow from create to Draw; Draw emails satisfy the invariants (everyone gives once and receives once, no self-Assignment, Exclusions respected) and use each Participant's language from their *last* Submission (e.g. submit in EN, edit in DE → German Draw email; this is the only Seam A coverage for the language stored in 03); post-Draw pages and locking
 
 ## Comments
 

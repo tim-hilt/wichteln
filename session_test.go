@@ -2,20 +2,32 @@ package main
 
 import (
 	"crypto/rand"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 )
 
 type sentMail struct{ to, subject, body string }
 
-// fakeMailer records every email instead of sending it.
-type fakeMailer struct{ sent []sentMail }
+// fakeMailer records every email instead of sending it. Sending to failTo
+// fails and records nothing. Safe for concurrent use.
+type fakeMailer struct {
+	mu     sync.Mutex
+	sent   []sentMail
+	failTo string
+}
 
 func (m *fakeMailer) Send(to, subject, body string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if to == m.failTo {
+		return errors.New("mail failed")
+	}
 	m.sent = append(m.sent, sentMail{to, subject, body})
 	return nil
 }

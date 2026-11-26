@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"io"
 	"math/rand/v2"
 )
 
@@ -33,10 +34,15 @@ func drawParticipants(participants []Participant, rng *rand.Rand) ([]int, error)
 	return Draw(len(participants), excluded, rng)
 }
 
-// drawSession performs the Draw: it sets every Participant's Recipient and
-// the Session's state to Drawn. On ErrNoDraw the Session is left unchanged.
-func drawSession(s *Session, rng *rand.Rand) error {
-	recipients, err := drawParticipants(s.Participants, rng)
+// drawSession performs the Draw, seeded from random: it sets every
+// Participant's Recipient and the Session's state to Drawn. On error (e.g.
+// ErrNoDraw) the Session is left unchanged.
+func drawSession(s *Session, random io.Reader) error {
+	var seed [32]byte
+	if _, err := io.ReadFull(random, seed[:]); err != nil {
+		return err
+	}
+	recipients, err := drawParticipants(s.Participants, rand.New(rand.NewChaCha8(seed)))
 	if err != nil {
 		return err
 	}

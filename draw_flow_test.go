@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -77,7 +78,7 @@ func TestFullFlowDrawSendsValidAssignmentsToEveryone(t *testing.T) {
 			if !strings.Contains(page, gives[n]+"-wish") || strings.Contains(page, "<form") || strings.Contains(page, "<textarea") {
 				t.Fatalf("post-draw page of %s:\n%s", n, page)
 			}
-			for _, other := range emails2names(emails) {
+			for other := range emails {
 				if other != gives[n] && other != n && strings.Contains(page, other+"-wish") {
 					t.Fatalf("page of %s leaks %s's wish", n, other)
 				}
@@ -93,12 +94,36 @@ func TestFullFlowDrawSendsValidAssignmentsToEveryone(t *testing.T) {
 	}
 }
 
-func emails2names(m map[string]string) []string {
-	var out []string
-	for n := range m {
-		out = append(out, n)
+func TestSimultaneousLastSubmissionsDrawOnce(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, p := openSession(t, c)
+	c.do("POST", p["Anna"], "en", wishForm("a"))
+	c.do("POST", p["Ben"], "en", wishForm("b"))
+	before := len(c.mailer.sent)
+	codes := make([]int, 2)
+	var wg sync.WaitGroup
+	for i := range codes {
+		wg.Go(func() { codes[i] = c.do("POST", p["Cleo"], "en", wishForm("c")).Code })
 	}
-	return out
+	wg.Wait()
+	if drawMails := len(c.mailer.sent) - before; drawMails != 3 {
+		t.Errorf("want 3 draw mails, got %d (statuses %v)", drawMails, codes)
+	}
+}
+
+func TestFailedDrawEmailDoesNotStopTheOthers(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, p := openSession(t, c)
+	c.do("POST", p["Ben"], "en", wishForm("b"))
+	c.do("POST", p["Cleo"], "en", wishForm("c"))
+	before := len(c.mailer.sent)
+	c.mailer.failTo = "anna@x.de" // the first Participant
+	if rec := c.do("POST", p["Anna"], "en", wishForm("a")); rec.Code != http.StatusInternalServerError {
+		t.Errorf("status %d", rec.Code)
+	}
+	if got := len(c.mailer.sent) - before; got != 2 {
+		t.Errorf("want draw mails to Ben and Cleo, got %d", got)
+	}
 }
 
 func TestDrawEmailUsesLanguageOfLastSubmission(t *testing.T) {

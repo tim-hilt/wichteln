@@ -4,12 +4,12 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/secret-santa/spec.md` · Vocabulary: `GLOSSARY.md` · Persistence: ADR-0001
 
-- [ ] The Session page offers per-Participant actions (before the Draw only): correct the email address and resend the Personal link
-- [ ] Correcting an email persists it and sends the invitation email to the new address; resend sends it to the current address; both use the Organizer's language
-- [ ] Names and the set of Participants remain unchangeable
-- [ ] The actions are neither shown nor accepted (POSTs rejected) once the Session is `Drawn`
-- [ ] Seam A tests: correction, resend, unchanged names, rejection after the Draw
+- [x] The Session page offers per-Participant actions (before the Draw only): correct the email address and resend the Personal link
+- [x] Correcting an email persists it and sends the invitation email to the new address; resend sends it to the current address; both use the Organizer's language
+- [x] Names and the set of Participants remain unchangeable
+- [x] The actions are neither shown nor accepted (POSTs rejected) once the Session is `Drawn`
+- [x] Seam A tests: correction, resend, unchanged names, rejection after the Draw

@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
-	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strings"
@@ -98,12 +96,7 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	// The feasibility check, the save and the Draw happen in one store update,
 	// so two simultaneous Submissions can't each pass the check on their own
 	// and together leave no valid Draw, and the last ones can't Draw twice.
-	seed := make([]byte, 32)
-	if _, err := io.ReadFull(a.random, seed); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	var drawn *Session
+	var drawn *Session // set if this Submission completed the Draw
 	err := a.store.Update(sess.Hash, func(s *Session) error {
 		if s.State == stateDrawn {
 			return errAlreadyDrawn
@@ -114,7 +107,7 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 			return ErrNoDraw
 		}
 		if s.allSubmitted() {
-			if err := drawSession(s, rand.New(rand.NewChaCha8([32]byte(seed)))); err != nil {
+			if err := drawSession(s, a.random); err != nil {
 				return err
 			}
 			drawn = s
@@ -130,11 +123,10 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
 		if drawn != nil {
-			err = a.sendDrawEmails(*drawn)
-		}
-		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+			if err := a.sendDrawEmails(*drawn); err != nil {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
 		}
 		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
 	}
@@ -144,16 +136,16 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 var errAlreadyDrawn = errors.New("session already drawn")
 
 // sendDrawEmails tells every Participant, in the language of their last
-// Submission, whom they give to and that person's Wish.
+// Submission, whom they give to and that person's Wish. A failed email does
+// not stop the others: the Draw is already saved and can't be repeated.
 func (a *app) sendDrawEmails(s Session) error {
+	var errs []error
 	for _, p := range s.Participants {
 		t := catalog[p.Lang]
 		body := fmt.Sprintf(t["draw_body"], p.Name, p.Recipient, s.participantNamed(p.Recipient).Wish)
-		if err := a.mailer.Send(p.Email, t["draw_subject"], body); err != nil {
-			return err
-		}
+		errs = append(errs, a.mailer.Send(p.Email, t["draw_subject"], body))
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // others returns the names of all Participants except me.

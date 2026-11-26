@@ -112,30 +112,36 @@ func (a *app) sendInvite(s Session, p Participant) error {
 // correctEmail replaces a Participant's email address and sends their Personal
 // link to the new address. Only possible before the Draw.
 func (a *app) correctEmail(w http.ResponseWriter, r *http.Request) {
-	a.participantAction(w, r, func(s *Session, p *Participant) []string {
-		email := strings.TrimSpace(r.PostFormValue("email"))
-		if !plausibleEmail(email) {
-			return []string{"err_bad_email"}
-		}
-		p.Email = email
-		return nil
-	})
+	email := strings.TrimSpace(r.PostFormValue("email"))
+	if plausibleEmail(email) {
+		a.participantAction(w, r, func(p *Participant) { p.Email = email })
+		return
+	}
+	sess, ok, err := a.store.Load(r.PathValue("hash"))
+	switch {
+	case err != nil:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	case !ok:
+		http.NotFound(w, r)
+	default:
+		t := messagesFor(r)
+		render(w, http.StatusUnprocessableEntity, "session.html", map[string]any{"T": t, "Session": sess, "Errors": []string{t["err_bad_email"]}})
+	}
 }
 
 // resendLink sends a Participant's Personal link to their current address.
 // Only possible before the Draw.
 func (a *app) resendLink(w http.ResponseWriter, r *http.Request) {
-	a.participantAction(w, r, func(*Session, *Participant) []string { return nil })
+	a.participantAction(w, r, func(*Participant) {})
 }
 
 // participantAction is the shared flow of the Organizer's per-Participant
-// actions: find the Participant by the "participant" field, let change update them
-// (it returns error message keys to reject the change, saving nothing), save,
-// then send them the invitation. Rejected with 409 once the Session is Drawn.
-func (a *app) participantAction(w http.ResponseWriter, r *http.Request, change func(*Session, *Participant) []string) {
+// actions: find the Participant named by the "participant" field, apply change
+// to them, save, then send them the invitation. Unknown Sessions and
+// Participants get 404; once the Session is Drawn, 409 and nothing happens.
+func (a *app) participantAction(w http.ResponseWriter, r *http.Request, change func(*Participant)) {
 	hash := r.PathValue("hash")
 	name := r.PostFormValue("participant")
-	var errKeys []string
 	var updated Session
 	var invitee Participant
 	err := a.store.Update(hash, func(s *Session) error {
@@ -146,9 +152,7 @@ func (a *app) participantAction(w http.ResponseWriter, r *http.Request, change f
 		if p == nil {
 			return os.ErrNotExist
 		}
-		if errKeys = change(s, p); len(errKeys) > 0 {
-			return errRejected
-		}
+		change(p)
 		updated, invitee = *s, *p
 		return nil
 	})
@@ -157,19 +161,16 @@ func (a *app) participantAction(w http.ResponseWriter, r *http.Request, change f
 		http.NotFound(w, r)
 	case errors.Is(err, errAlreadyDrawn):
 		http.Error(w, "already drawn", http.StatusConflict)
-	case errors.Is(err, errRejected):
-		sess, _, _ := a.store.Load(hash)
-		t := messagesFor(r)
-		render(w, http.StatusUnprocessableEntity, "session.html", map[string]any{"T": t, "Session": sess, "Errors": []string{t[errKeys[0]]}})
-	case err != nil, a.sendInvite(updated, invitee) != nil:
+	case err != nil:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
+		if err := a.sendInvite(updated, invitee); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 		http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
 	}
 }
-
-// errRejected is returned from a store update whose change was refused.
-var errRejected = errors.New("change rejected")
 
 // rowsFromForm reads the parallel name/email fields; the first row is the Organizer.
 func rowsFromForm(r *http.Request) []rowView {
