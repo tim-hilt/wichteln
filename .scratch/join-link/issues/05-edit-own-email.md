@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** in-review
+**Status:** done
 
 Spec: `.scratch/join-link/spec.md`
 

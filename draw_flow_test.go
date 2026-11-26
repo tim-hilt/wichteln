@@ -173,3 +173,33 @@ func TestDrawEmailHTMLShowsEscapedWish(t *testing.T) {
 		}
 	}
 }
+
+func TestFailedConfirmationEmailDoesNotStopDrawEmails(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, join, anna := createAnnaSession(t, c, "en")
+	c.do("POST", anna, "en", c.personalForm(anna, "a"))
+	c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b"))
+	before := len(c.mailer.sent)
+	c.mailer.failTo = "cleo@x.de"
+	if rec := c.do("POST", join, "en", joinForm("Cleo", "cleo@x.de", "c")); rec.Code != http.StatusInternalServerError {
+		t.Errorf("status %d", rec.Code)
+	}
+	if got := len(c.mailer.sent) - before; got != 2 {
+		t.Errorf("want draw mails to Anna and Ben, got %d", got)
+	}
+}
+
+func TestFailedChangedEmailConfirmationDoesNotStopDrawEmails(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, p := openSession(t, c)
+	before := len(c.mailer.sent)
+	c.mailer.failTo = "anna@new.de"
+	form := c.personalForm(p["Anna"], "a")
+	form.Set("email", "anna@new.de")
+	if rec := c.do("POST", p["Anna"], "en", form); rec.Code != http.StatusInternalServerError {
+		t.Errorf("status %d", rec.Code)
+	}
+	if got := len(c.mailer.sent) - before; got != 2 {
+		t.Errorf("want draw mails to Ben and Cleo, got %d", got)
+	}
+}

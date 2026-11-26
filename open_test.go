@@ -73,3 +73,19 @@ func TestJoinFromWelcomePage(t *testing.T) {
 		t.Errorf("join hash opened as link: %d", rec.Code)
 	}
 }
+
+func TestJoinFromWelcomePageAfterDrawRedirectsToClosedPage(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, join, anna := createAnnaSession(t, c, "en")
+	c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b"))
+	c.do("POST", join, "en", joinForm("Cleo", "cleo@x.de", "c"))
+	c.do("POST", anna, "en", c.personalForm(anna, "a"))
+
+	rec := c.do("POST", "/open-join", "en", url.Values{"hash": {strings.TrimPrefix(join, "/join/")}})
+	if rec.Code != 303 || rec.Header().Get("Location") != join {
+		t.Fatalf("status %d, location %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if body := c.do("GET", join, "en", nil).Body.String(); !strings.Contains(body, "Joining is closed") {
+		t.Errorf("want closed page:\n%s", body)
+	}
+}

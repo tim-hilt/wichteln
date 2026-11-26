@@ -105,7 +105,7 @@ button.icon { padding: .5rem .75rem; }
 .inline input { flex: 1 1 12rem; width: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 
-/* Creation form: one grid so every row lines up */
+/* Creation form: one row per name; only the Organizer's row has an email */
 .participant-grid { display: grid; gap: .5rem; }
 .participant-grid .row { display: flex; gap: .5rem; align-items: center; }
 .participant-grid .row input { flex: 1; min-width: 0; }

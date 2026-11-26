@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"net/http"
-	"slices"
-	"strings"
 )
 
 // errNameTaken is returned from a store update that finds the name joined.
@@ -39,7 +37,7 @@ func (a *app) joinPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if p := sess.participantNamed(r.URL.Query().Get("name")); p != nil && !p.joined() && sess.State != stateDrawn {
-		renderJoinForm(w, r, http.StatusOK, sess, joinView{personalView: personalView{Name: p.Name}}, nil)
+		renderJoinForm(w, r, http.StatusOK, sess, Participant{Name: p.Name}, nil)
 		return
 	}
 	renderJoinSelection(w, r, http.StatusOK, sess, "")
@@ -64,23 +62,14 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := messagesFor(r)
-	me := Participant{Name: r.PostForm.Get("name"), Email: strings.TrimSpace(r.PostForm.Get("email")), Wish: strings.TrimSpace(r.PostForm.Get("wish"))}
-	if p := sess.participantNamed(me.Name); p == nil || p.joined() {
+	name := r.PostForm.Get("name")
+	if p := sess.participantNamed(name); p == nil || p.joined() {
 		renderJoinSelection(w, r, http.StatusConflict, sess, t["err_name_taken"])
 		return
 	}
-	for _, o := range others(sess, me) {
-		if slices.Contains(r.PostForm["exclude"], o) {
-			me.Exclusions = append(me.Exclusions, o)
-		}
-	}
-	view := joinView{personalView: personalView{Name: me.Name, Email: me.Email, Wish: me.Wish, Others: otherViews(sess, me)}}
-	switch {
-	case !plausibleEmail(me.Email):
-		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, view, []string{t["err_bad_email"]})
-		return
-	case wishError(me.Wish) != "":
-		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, view, []string{t[wishError(me.Wish)]})
+	me := submissionFrom(r, sess, Participant{Name: name})
+	if key := submissionError(me); key != "" {
+		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]})
 		return
 	}
 
@@ -94,7 +83,6 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 		if p == nil || p.joined() {
 			return errNameTaken
 		}
-		me.Organizer, me.Submitted, me.Lang = false, true, languageFor(r)
 		*p = me
 		return nil
 	})
@@ -104,19 +92,14 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errNameTaken):
 		renderJoinSelection(w, r, http.StatusConflict, sess, t["err_name_taken"])
 	case errors.Is(err, ErrNoDraw):
-		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, view, []string{t["err_impossible_draw"]})
+		renderJoinForm(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
 	case err != nil:
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
-		if err := a.sendJoinConfirmation(me); err != nil {
+		// The Join is saved: attempt every email even if one fails.
+		if err := errors.Join(a.sendJoinConfirmation(me), a.sendDrawEmails(drawn)); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
-		}
-		if drawn != nil {
-			if err := a.sendDrawEmails(*drawn); err != nil {
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
 		}
 		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
 	}
@@ -140,12 +123,8 @@ func renderJoinSelection(w http.ResponseWriter, r *http.Request, status int, ses
 	})
 }
 
-// renderJoinForm shows the form for view.Name, listing everyone else as
-// possible Exclusions unless view already does.
-func renderJoinForm(w http.ResponseWriter, r *http.Request, status int, sess Session, view joinView, errs []string) {
-	view.T, view.Errors, view.JoinHash = messagesFor(r), errs, sess.JoinHash
-	if view.Others == nil {
-		view.Others = otherViews(sess, Participant{Name: view.Name})
-	}
-	render(w, status, "join_form.html", view)
+// renderJoinForm shows the join form greeting me, prefilled with what me
+// has entered so far.
+func renderJoinForm(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
+	render(w, status, "join_form.html", joinView{submissionView(r, sess, me, errs), sess.JoinHash})
 }

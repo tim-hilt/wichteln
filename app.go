@@ -90,8 +90,8 @@ func (a *app) openSession(w http.ResponseWriter, r *http.Request) {
 // openLink redirects to the Personal link page whose hash or link was pasted.
 func (a *app) openLink(w http.ResponseWriter, r *http.Request) {
 	a.open(w, r, func(hash string) (string, bool, error) {
-		sess, ok, err := a.store.LoadByPersonalLink(hash)
-		return "/" + hash, ok && sess.participant(hash) != nil, err
+		_, ok, err := a.store.LoadByPersonalLink(hash)
+		return "/" + hash, ok, err
 	})
 }
 

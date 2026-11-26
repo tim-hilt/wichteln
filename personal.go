@@ -44,9 +44,7 @@ func (a *app) findByPersonalLink(w http.ResponseWriter, r *http.Request) (Sessio
 		return Session{}, Participant{}, false
 	}
 	if ok {
-		if p := sess.participant(hash); p != nil {
-			return sess, *p, true
-		}
+		return sess, *sess.participant(hash), true
 	}
 	render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": messagesFor(r)})
 	return Session{}, Participant{}, false
@@ -64,7 +62,8 @@ func (a *app) personal(w http.ResponseWriter, r *http.Request) {
 // submitPersonal stores the Participant's email, Wish and Exclusions, marks
 // them as submitted and remembers the request's language. It can be repeated
 // to edit. A changed email address is sent the links email again (see
-// sendLinks), an unchanged one nothing. Exclusions that would leave no valid Draw are rejected and nothing is saved.
+// sendLinks), an unchanged one nothing. Exclusions that would leave no valid
+// Draw are rejected and nothing is saved.
 func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 	sess, me, ok := a.findByPersonalLink(w, r)
 	if !ok {
@@ -78,62 +77,75 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	t := messagesFor(r)
+	me = submissionFrom(r, sess, me)
+	if key := submissionError(me); key != "" {
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]})
+		return
+	}
+
 	emailChanged := false
+	drawn, err := a.submit(sess.Hash, func(s *Session) error {
+		p := s.participant(me.Hash)
+		if p == nil {
+			return errReleased
+		}
+		emailChanged = p.Email != me.Email
+		*p = me
+		return nil
+	})
+	switch {
+	case errors.Is(err, errAlreadyDrawn):
+		http.Error(w, "already drawn", http.StatusConflict)
+	case errors.Is(err, errReleased):
+		render(w, http.StatusNotFound, "not_found.html", map[string]any{"T": t})
+	case errors.Is(err, ErrNoDraw):
+		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
+	case err != nil:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	default:
+		// The Submission is saved: attempt every email even if one fails.
+		var linksErr error
+		if emailChanged {
+			linksErr = a.sendLinks(sess, me)
+		}
+		if err := errors.Join(linksErr, a.sendDrawEmails(drawn)); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
+	}
+}
+
+// errReleased is returned from a store update that finds the Participant
+// Released since their Personal link was loaded.
+var errReleased = errors.New("participant released")
+
+// submissionFrom returns me with the email, Wish and Exclusions of the
+// submission form (submission_fields.html), marked as submitted in the
+// request's language. Exclusions of unknown names and of me are ignored.
+func submissionFrom(r *http.Request, sess Session, me Participant) Participant {
 	me.Email = strings.TrimSpace(r.PostForm.Get("email"))
 	me.Wish = strings.TrimSpace(r.PostForm.Get("wish"))
-	me.Lang = languageFor(r)
+	me.Submitted, me.Lang = true, languageFor(r)
 	me.Exclusions = nil
 	for _, o := range others(sess, me) {
 		if slices.Contains(r.PostForm["exclude"], o) {
 			me.Exclusions = append(me.Exclusions, o)
 		}
 	}
-	t := messagesFor(r)
-	if !plausibleEmail(me.Email) {
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_bad_email"]})
-		return
-	}
-	if key := wishError(me.Wish); key != "" {
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t[key]})
-		return
-	}
-
-	drawn, err := a.submit(sess.Hash, func(s *Session) error {
-		p := s.participant(me.Hash)
-		emailChanged = p.Email != me.Email
-		p.Email, p.Wish, p.Exclusions, p.Submitted, p.Lang = me.Email, me.Wish, me.Exclusions, true, me.Lang
-		return nil
-	})
-	switch {
-	case errors.Is(err, errAlreadyDrawn):
-		http.Error(w, "already drawn", http.StatusConflict)
-	case errors.Is(err, ErrNoDraw):
-		renderPersonal(w, r, http.StatusUnprocessableEntity, sess, me, []string{t["err_impossible_draw"]})
-	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
-	default:
-		if emailChanged {
-			if err := a.sendLinks(sess, me); err != nil {
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-		}
-		if drawn != nil {
-			if err := a.sendDrawEmails(*drawn); err != nil {
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-		}
-		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
-	}
+	return me
 }
 
-// wishError returns the message key of the rule a Wish violates, or "".
-func wishError(wish string) string {
+// submissionError returns the message key of the first rule the Submission
+// violates, or "". Feasibility of the Exclusions is checked by submit.
+func submissionError(p Participant) string {
 	switch {
-	case wish == "":
+	case !plausibleEmail(p.Email):
+		return "err_bad_email"
+	case p.Wish == "":
 		return "err_empty_wish"
-	case utf8.RuneCountInString(wish) > maxWishLength:
+	case utf8.RuneCountInString(p.Wish) > maxWishLength:
 		return "err_long_wish"
 	}
 	return ""
@@ -171,10 +183,14 @@ func (a *app) submit(sessionHash string, change func(*Session) error) (drawn *Se
 // errAlreadyDrawn is returned from a store update that finds the Draw done.
 var errAlreadyDrawn = errors.New("session already drawn")
 
-// sendDrawEmails tells every Participant, in the language of their last
-// Submission, whom they give to and that person's Wish. A failed email does
-// not stop the others: the Draw is already saved and can't be repeated.
-func (a *app) sendDrawEmails(s Session) error {
+// sendDrawEmails tells every Participant of the drawn Session, in the
+// language of their last Submission, whom they give to and that person's
+// Wish; nil (no Draw happened) sends nothing. A failed email does not stop
+// the others: the Draw is already saved and can't be repeated.
+func (a *app) sendDrawEmails(s *Session) error {
+	if s == nil {
+		return nil
+	}
 	var errs []error
 	for _, p := range s.Participants {
 		t := catalog[p.Lang]
@@ -204,12 +220,17 @@ func otherViews(sess Session, me Participant) []otherView {
 	return views
 }
 
+// submissionView is the submission form (submission_fields.html) for me,
+// prefilled with what me has entered so far.
+func submissionView(r *http.Request, sess Session, me Participant, errs []string) personalView {
+	return personalView{T: messagesFor(r), Name: me.Name, Email: me.Email, Wish: me.Wish, Others: otherViews(sess, me), Errors: errs}
+}
+
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string) {
-	view := personalView{T: messagesFor(r), Name: me.Name, Email: me.Email, Wish: me.Wish, Errors: errs}
+	view := submissionView(r, sess, me, errs)
 	if sess.State == stateDrawn {
 		view.Drawn, view.Recipient = true, me.Recipient
 		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish
 	}
-	view.Others = otherViews(sess, me)
 	render(w, status, "personal.html", view)
 }

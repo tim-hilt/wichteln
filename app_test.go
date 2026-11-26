@@ -54,9 +54,9 @@ func TestWelcomePageLanguage(t *testing.T) {
 	}
 }
 
-func TestWelcomePageOffersThreeActions(t *testing.T) {
+func TestWelcomePageOffersFourActions(t *testing.T) {
 	body := get(t, "/", "en")
-	for _, want := range []string{"Create a new Session", "Open an existing Session", "Open a Personal link"} {
+	for _, want := range []string{"Create a new Session", "Open an existing Session", "Open a Personal link", "Join a Session"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}

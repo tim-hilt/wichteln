@@ -23,7 +23,7 @@ type Session struct {
 	Hash         string
 	JoinHash     string // Join link hash; empty for Sessions created before Join links
 	State        string
-	Lang         string // the Organizer's language, used for invitation emails
+	Lang         string // the Organizer's language at creation, used for the Organizer email
 	Participants []Participant
 }
 
@@ -106,7 +106,7 @@ type Store struct {
 }
 
 // NewStore opens the directory (creating it if needed) and indexes the
-// Personal links of all stored Sessions.
+// Personal links and Join links of all stored Sessions.
 func NewStore(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
@@ -180,9 +180,11 @@ func (s *Store) Update(hash string, fn func(*Session) error) error {
 }
 
 // LoadByPersonalLink returns the Session containing the Participant with the
-// given Personal link hash; ok is false if there is none.
+// given Personal link hash; ok is false if there is none, e.g. because the
+// Participant was Released.
 func (s *Store) LoadByPersonalLink(hash string) (Session, bool, error) {
-	return s.loadByLink(hash)
+	sess, ok, err := s.loadByLink(hash)
+	return sess, ok && sess.participant(hash) != nil, err
 }
 
 // LoadByJoinLink returns the Session with the given Join link hash; ok is
@@ -192,6 +194,9 @@ func (s *Store) LoadByJoinLink(hash string) (Session, bool, error) {
 	return sess, ok && sess.JoinHash == hash, err
 }
 
+// loadByLink returns the Session the index maps hash to. The index never
+// forgets a hash (a Released Personal link stays in it) and mixes both kinds
+// of links, so callers must check that hash still is the link they look for.
 func (s *Store) loadByLink(hash string) (Session, bool, error) {
 	s.mu.Lock()
 	sessionHash, found := s.sessionOf[hash]
