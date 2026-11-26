@@ -1,28 +1,27 @@
 {{template "header" .}}
     {{if eq .Session.State "Drawn"}}
-    <p>{{.T.drawn}}</p>
+    <p class="success">🎉 {{.T.drawn}}</p>
     {{else}}
+    <h2>{{.T.participants}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
-    <table>
+    <ul class="participants">
       {{range .Session.Participants}}
-      <tr>
-        <td>{{.Name}}</td>
-        <td>
-          <form method="post" action="/session/{{$.Session.Hash}}/email">
-            <input type="hidden" name="participant" value="{{.Name}}">
-            <input type="email" name="email" value="{{.Email}}" required>
-            <button>{{$.T.save_email}}</button>
-          </form>
-        </td>
-        <td>{{if .Submitted}}{{$.T.status_submitted}}{{else}}{{$.T.status_pending}}{{end}}</td>
-        <td>
+      <li>
+        <div class="participant-head">
+          <strong>{{.Name}}</strong>
+          {{if .Submitted}}<span class="badge done">{{$.T.status_submitted}}</span>{{else}}<span class="badge">{{$.T.status_pending}}</span>{{end}}
           <form method="post" action="/session/{{$.Session.Hash}}/resend">
             <input type="hidden" name="participant" value="{{.Name}}">
-            <button>{{$.T.resend}}</button>
+            <button class="secondary">{{$.T.resend}}</button>
           </form>
-        </td>
-      </tr>
+        </div>
+        <form method="post" action="/session/{{$.Session.Hash}}/email" class="inline">
+          <input type="hidden" name="participant" value="{{.Name}}">
+          <input type="email" name="email" value="{{.Email}}" required aria-label="{{$.T.email}}">
+          <button class="secondary">{{$.T.save_email}}</button>
+        </form>
+      </li>
       {{end}}
-    </table>
+    </ul>
     {{end}}
 {{template "footer" .}}

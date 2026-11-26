@@ -16,6 +16,7 @@ type Messages map[string]string
 var catalog = map[string]Messages{
 	"en": {
 		"title":        "Secret Santa",
+		"tagline":      "Draw names, share wishes, keep the secret. No sign-up needed.",
 		"create":       "Create a new Session",
 		"open_session": "Open an existing Session",
 		"open_link":    "Open a Personal link",
@@ -24,6 +25,7 @@ var catalog = map[string]Messages{
 		"go":           "Open",
 
 		"me":                  "Me",
+		"participants":        "Participants",
 		"name":                "Name",
 		"email":               "Email",
 		"add_participant":     "Add participant",
@@ -58,6 +60,7 @@ var catalog = map[string]Messages{
 	},
 	"de": {
 		"title":        "Wichteln",
+		"tagline":      "Wichtel auslosen, Wünsche teilen, Geheimnis wahren. Ganz ohne Anmeldung.",
 		"create":       "Neue Sitzung erstellen",
 		"open_session": "Bestehende Sitzung öffnen",
 		"open_link":    "Persönlichen Link öffnen",
@@ -66,6 +69,7 @@ var catalog = map[string]Messages{
 		"go":           "Öffnen",
 
 		"me":                  "Ich",
+		"participants":        "Teilnehmer",
 		"name":                "Name",
 		"email":               "E-Mail",
 		"add_participant":     "Teilnehmer hinzufügen",

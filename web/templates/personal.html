@@ -2,19 +2,26 @@
     <h2>{{printf .T.greeting .Name}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     {{if .Drawn}}
-    <p>{{printf .T.draw_gives_to .Recipient}}</p>
-    <p>{{.T.draw_wish}}:</p>
-    <blockquote>{{.RecipientsWish}}</blockquote>
+    <p class="success">🎁 {{printf .T.draw_gives_to .Recipient}}</p>
+    <div class="field">
+      <span class="label">{{.T.draw_wish}}</span>
+      <blockquote>{{.RecipientsWish}}</blockquote>
+    </div>
     {{else}}
     <form method="post">
-      <label>{{.T.wish}} <textarea name="wish" required rows="5">{{.Wish}}</textarea></label>
+      <div class="field">
+        <label for="wish">{{.T.wish}}</label>
+        <textarea id="wish" name="wish" required rows="5">{{.Wish}}</textarea>
+      </div>
       <fieldset>
         <legend>{{.T.exclusions}}</legend>
-        <p>{{.T.exclusions_help}}</p>
-        {{range .Others}}<label><input type="checkbox" name="exclude" value="{{.Name}}"{{if .Excluded}} checked{{end}}> {{.Name}}</label>
-        {{end}}
+        <p class="hint">{{.T.exclusions_help}}</p>
+        <div class="choices">
+          {{range .Others}}<label><input type="checkbox" name="exclude" value="{{.Name}}"{{if .Excluded}} checked{{end}}> {{.Name}}</label>
+          {{end}}
+        </div>
       </fieldset>
-      <button>{{.T.submit_wish}}</button>
+      <div class="actions"><button>{{.T.submit_wish}}</button></div>
     </form>
     {{end}}
 {{template "footer" .}}

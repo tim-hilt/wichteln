@@ -1,13 +1,25 @@
 {{template "header" .}}
+    <p class="lead">{{.T.tagline}}</p>
     <form method="post" action="/new"><button>{{.T.create}}</button></form>
+    <hr>
     <form method="post" action="/open-session">
-      {{if eq .Form "/open-session"}}<p class="error">{{.Error}}</p>{{end}}
-      <label>{{.T.open_session}} <input name="hash" required placeholder="{{.T.session_hash}}"{{if eq .Form "/open-session"}} value="{{.Input}}"{{end}}></label>
-      <button>{{.T.go}}</button>
+      <div class="field">
+        <label for="session-hash">{{.T.open_session}}</label>
+        <div class="inline">
+          <input id="session-hash" name="hash" required placeholder="{{.T.session_hash}}"{{if eq .Form "/open-session"}} value="{{.Input}}"{{end}}>
+          <button class="secondary">{{.T.go}}</button>
+        </div>
+        {{if eq .Form "/open-session"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+      </div>
     </form>
     <form method="post" action="/open-link">
-      {{if eq .Form "/open-link"}}<p class="error">{{.Error}}</p>{{end}}
-      <label>{{.T.open_link}} <input name="hash" required placeholder="{{.T.link_hash}}"{{if eq .Form "/open-link"}} value="{{.Input}}"{{end}}></label>
-      <button>{{.T.go}}</button>
+      <div class="field">
+        <label for="link-hash">{{.T.open_link}}</label>
+        <div class="inline">
+          <input id="link-hash" name="hash" required placeholder="{{.T.link_hash}}"{{if eq .Form "/open-link"}} value="{{.Input}}"{{end}}>
+          <button class="secondary">{{.T.go}}</button>
+        </div>
+        {{if eq .Form "/open-link"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+      </div>
     </form>
 {{template "footer" .}}
