@@ -73,7 +73,7 @@ func TestStaticAssetsServed(t *testing.T) {
 
 func TestStdoutMailerLogsEmail(t *testing.T) {
 	var sb strings.Builder
-	err := StdoutMailer{Out: &sb}.Send("a@b.de", "Hi", "Body")
+	err := StdoutMailer{Out: &sb}.Send(Mail{To: "a@b.de", Subject: "Hi", Text: "Body", HTML: "<p>Body</p>"})
 	if err != nil || !strings.Contains(sb.String(), "a@b.de") || !strings.Contains(sb.String(), "Hi") {
 		t.Errorf("err=%v out=%q", err, sb.String())
 	}

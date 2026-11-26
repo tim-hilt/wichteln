@@ -155,3 +155,21 @@ func TestPostDrawSubmissionsAreRejected(t *testing.T) {
 		t.Error("post-draw edit had an effect")
 	}
 }
+
+func TestDrawEmailHTMLShowsEscapedWish(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, p := openSession(t, c)
+	before := len(c.mailer.sent)
+	for _, n := range []string{"Anna", "Ben", "Cleo"} {
+		c.do("POST", p[n], "en", wishForm("Books & <cookies>"))
+	}
+	mails := c.mailer.sent[before:]
+	if len(mails) != 3 {
+		t.Fatalf("want 3 draw mails, got %d", len(mails))
+	}
+	for _, m := range mails {
+		if !strings.Contains(m.html, "Books &amp; &lt;cookies&gt;") || strings.Contains(m.html, "<cookies>") || !strings.Contains(m.html, "Their wish") {
+			t.Errorf("bad html draw mail to %s:\n%s", m.to, m.html)
+		}
+	}
+}

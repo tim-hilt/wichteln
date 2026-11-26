@@ -142,8 +142,8 @@ func (a *app) sendDrawEmails(s Session) error {
 	var errs []error
 	for _, p := range s.Participants {
 		t := catalog[p.Lang]
-		body := fmt.Sprintf(t["draw_body"], p.Name, p.Recipient, s.participantNamed(p.Recipient).Wish)
-		errs = append(errs, a.mailer.Send(p.Email, t["draw_subject"], body))
+		view := mailView{T: t, Intro: fmt.Sprintf(t["draw_intro"], p.Recipient), Wish: s.participantNamed(p.Recipient).Wish}
+		errs = append(errs, a.send(p, t["draw_subject"], view))
 	}
 	return errors.Join(errs...)
 }

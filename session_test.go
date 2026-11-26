@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-type sentMail struct{ to, subject, body string }
+type sentMail struct{ to, subject, body, html string }
 
 // fakeMailer records every email instead of sending it. Sending to failTo
 // fails and records nothing. Safe for concurrent use.
@@ -22,13 +22,13 @@ type fakeMailer struct {
 	failTo string
 }
 
-func (m *fakeMailer) Send(to, subject, body string) error {
+func (m *fakeMailer) Send(mail Mail) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if to == m.failTo {
+	if mail.To == m.failTo {
 		return errors.New("mail failed")
 	}
-	m.sent = append(m.sent, sentMail{to, subject, body})
+	m.sent = append(m.sent, sentMail{mail.To, mail.Subject, mail.Text, mail.HTML})
 	return nil
 }
 
@@ -161,6 +161,17 @@ func TestInvitationsUseOrganizerLanguage(t *testing.T) {
 	c.do("POST", c.createSession(), "de", threeRows)
 	if m := c.mailer.sent[0]; !strings.Contains(m.subject+m.body, "Einladung") {
 		t.Errorf("want German invitation: %+v", m)
+	}
+}
+
+func TestInvitationHasHTMLVersionWithButton(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, p := openSession(t, c)
+	m := c.mailer.sent[1]
+	for _, want := range []string{"Hello Ben", `href="http://example.test` + p["Ben"] + `"`, "Open your Personal link", "<html"} {
+		if !strings.Contains(m.html, want) {
+			t.Errorf("html invitation missing %q:\n%s", want, m.html)
+		}
 	}
 }
 

@@ -12,7 +12,11 @@ func main() {
 	dataDir := env("DATA_DIR", "data")
 	baseURL := env("BASE_URL", "http://localhost:8080")
 
-	handler := NewApp(dataDir, StdoutMailer{Out: os.Stdout}, baseURL, rand.Reader)
+	mailer, err := mailerFromEnv(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
+	handler := NewApp(dataDir, mailer, baseURL, rand.Reader)
 	log.Printf("listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, handler))
 }

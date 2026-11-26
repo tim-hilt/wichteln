@@ -1,0 +1,43 @@
+<!doctype html>
+{{/* An email, styled like the website. Mail clients ignore stylesheets, so
+     all styles are inline and the layout is a table. */}}
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.T.title}}</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f1e7;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f1e7;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#2b2622;">
+    <tr>
+      <td style="padding:0 12px;background:#1e5631;border-bottom:8px solid #b3261e;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:42rem;margin:0 auto;">
+          <tr><td style="padding:24px 32px;font-size:28px;font-weight:700;line-height:1.2;color:#ffffff;">🎄 {{.T.title}}</td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:42rem;margin:0 auto;background:#ffffff;border-radius:10px;">
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;">{{.Greeting}}</p>
+              <p style="margin:0;">{{.Intro}}</p>
+              {{- if .Link}}
+              <p style="margin:24px 0 0;">
+                <a href="{{.Link}}" style="display:inline-block;padding:10px 20px;font-weight:600;color:#ffffff;background:#b3261e;border-radius:10px;text-decoration:none;">{{.T.invite_button}}</a>
+              </p>
+              <p style="margin:16px 0 0;font-size:14px;color:#6e655c;word-break:break-all;"><a href="{{.Link}}" style="color:#1e5631;">{{.Link}}</a></p>
+              {{- end}}
+              {{- if .Wish}}
+              <p style="margin:24px 0 6px;font-weight:600;">{{.T.draw_wish}}</p>
+              <div style="padding:16px 20px;white-space:pre-wrap;background:#fdf8ea;border-left:4px solid #d9a521;border-radius:10px;">{{.Wish}}</div>
+              {{- end}}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -92,7 +92,7 @@ A small, self-hosted web app with no accounts. Access is controlled by unguessab
 
 50. As a self-hoster, I want a single small Docker image (`FROM scratch`) with all assets embedded, so that deployment is trivial.
 51. As a self-hoster, I want Sessions persisted to a data directory I can mount as a volume, so that data survives restarts.
-52. As a self-hoster, I want emails logged to stdout while SMTP isn't configured yet, so that I can run and test the app without a mail provider.
+52. As a self-hoster, I want emails logged to stdout while SMTP isn't configured, so that I can run and test the app without a mail provider.
 53. As a self-hoster, I want the public base URL configurable, so that links in emails point to my domain.
 54. As a self-hoster, I want Sessions never deleted, so that there is no cleanup logic to worry about (traffic is very low).
 
@@ -123,8 +123,8 @@ Vocabulary follows `GLOSSARY.md`. Persistence follows ADR-0001.
   - Invitation and resend emails use the Organizer's language, stored when the Session is created.
   - Draw emails use each Participant's language from their last Submission.
   - All strings live in a single message catalog keyed by message id. Templates look them up via a template function.
-- **Mailer interface (adapter)**: a single "send email (to, subject, body)" capability. For now the only production adapter logs to stdout; an SMTP adapter (`net/smtp`, env-configured) comes later. Email bodies are plain text. Links are built from a configurable base URL.
-- **Configuration via environment**: listen address, data directory, base URL. SMTP variables are added later.
+- **Mailer interface (adapter)**: a single "send email" capability taking a Mail (to, subject, plain-text and HTML version). Two production adapters: SMTP (`net/smtp`; implicit TLS on port 465, STARTTLS otherwise) and stdout, used when no SMTP server is configured. Emails are `multipart/alternative`: plain text plus HTML styled like the website (inline styles, table layout). Links are built from a configurable base URL.
+- **Configuration via environment**: listen address, data directory, base URL, and SMTP server, port, credentials and sender address (`MAIL_FROM`). Nothing deployment-specific is built in.
 - **Application constructor**: one constructor builds the root `http.Handler` from (data directory, Mailer, base URL, random source). This constructor is the test seam.
 
 ## Testing Decisions
@@ -160,7 +160,7 @@ Vocabulary follows `GLOSSARY.md`. Persistence follows ADR-0001.
 - Mutual pairs (A↔B) as a matching mode.
 - Deleting Sessions, accounts, authentication beyond secret links, rate limiting.
 - A language selector or languages other than DE/EN.
-- SMTP delivery and email-failure handling (deferred; stdout Mailer for now).
+- Email-failure handling beyond reporting the error (no retries or outbox).
 
 ## Further Notes
 
