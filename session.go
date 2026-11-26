@@ -4,14 +4,14 @@ import (
 	"errors"
 	"net/http"
 	"net/mail"
-	"os"
 	"strings"
 )
 
 // minParticipants keeps the Draw secret: with fewer, assignments are guessable.
 const minParticipants = 3
 
-// rowView is one Participant row of the creation form.
+// rowView is one Participant row of the creation form. Only the Organizer's
+// row (Me) has an Email.
 type rowView struct {
 	T           Messages
 	Me          bool // the Organizer's own row: labelled, not removable
@@ -59,9 +59,9 @@ func (a *app) participantRow(w http.ResponseWriter, r *http.Request) {
 	render(w, http.StatusOK, "participant_row.html", rowView{T: messagesFor(r)})
 }
 
-// submitSession validates the creation form, stores the Session as Open and
-// emails every Participant given with an email address their Personal link in
-// the Organizer's language. Names without email wait to be joined.
+// submitSession validates the creation form, stores the Session as Open with
+// the Organizer already joined, and emails the Organizer, and only them, their
+// links in their language. Everyone else joins later via the Join link.
 func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 	hash := r.PathValue("hash")
 	if !validHash(hash) {
@@ -86,7 +86,7 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 	sess := Session{Hash: hash, JoinHash: joinHash, State: stateOpen, Lang: languageFor(r)}
 	for i, row := range rows {
 		p := Participant{Name: row.Name, Email: row.Email, Organizer: i == 0}
-		if row.Email != "" { // names without email are joined later, via the Join link
+		if p.Organizer {
 			if p.Hash, err = newHash(a.random); err != nil {
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
@@ -103,94 +103,60 @@ func (a *app) submitSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, p := range sess.Participants {
-		if !p.joined() {
-			continue
-		}
-		if err := a.sendInvite(sess, p); err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
+	if err := a.sendLinks(sess, sess.Participants[0]); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 	http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
 }
 
-// sendInvite emails the Participant their Personal link in the Organizer's language.
-func (a *app) sendInvite(s Session, p Participant) error {
+// sendLinks emails a joined Participant their links: the Organizer all three
+// (Session, Join and Personal link) in the Session's language, anyone else
+// their Personal link in their own language.
+func (a *app) sendLinks(s Session, p Participant) error {
+	if !p.Organizer {
+		return a.sendJoinConfirmation(p)
+	}
 	t := catalog[s.Lang]
-	return a.send(p, t["invite_subject"], mailView{T: t, Intro: t["invite_intro"], Links: []mailLink{{t["invite_button"], a.baseURL + "/" + p.Hash}}})
+	return a.send(p, t["organizer_subject"], mailView{T: t, Intro: t["organizer_intro"], Links: []mailLink{
+		{t["session_link"], a.baseURL + "/session/" + s.Hash},
+		{t["join_link"], a.baseURL + "/join/" + s.JoinHash},
+		{t["personal_link"], a.baseURL + "/" + p.Hash},
+	}})
 }
 
-// correctEmail replaces a Participant's email address and sends their Personal
-// link to the new address. Only possible before the Draw.
-func (a *app) correctEmail(w http.ResponseWriter, r *http.Request) {
-	email := strings.TrimSpace(r.PostFormValue("email"))
-	if plausibleEmail(email) {
-		a.participantAction(w, r, func(p *Participant) { p.Email = email })
+// resendLink sends a joined Participant their links again, to the address they
+// entered. Unknown Sessions and Participants and names not joined yet get 404;
+// once the Session is Drawn, 409 and nothing is sent.
+func (a *app) resendLink(w http.ResponseWriter, r *http.Request) {
+	sess, ok, err := a.store.Load(r.PathValue("hash"))
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	sess, ok, err := a.store.Load(r.PathValue("hash"))
+	p := sess.participantNamed(r.PostFormValue("participant"))
 	switch {
-	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
-	case !ok:
+	case !ok || p == nil || !p.joined():
 		http.NotFound(w, r)
-	default:
-		a.renderSession(w, r, http.StatusUnprocessableEntity, sess, []string{messagesFor(r)["err_bad_email"]})
-	}
-}
-
-// resendLink sends a Participant's Personal link to their current address.
-// Only possible before the Draw.
-func (a *app) resendLink(w http.ResponseWriter, r *http.Request) {
-	a.participantAction(w, r, func(*Participant) {})
-}
-
-// participantAction is the shared flow of the Organizer's per-Participant
-// actions: find the Participant named by the "participant" field, apply change
-// to them, save, then send them the invitation. Unknown Sessions and
-// Participants get 404; once the Session is Drawn, 409 and nothing happens.
-func (a *app) participantAction(w http.ResponseWriter, r *http.Request, change func(*Participant)) {
-	hash := r.PathValue("hash")
-	name := r.PostFormValue("participant")
-	var updated Session
-	var invitee Participant
-	err := a.store.Update(hash, func(s *Session) error {
-		if s.State == stateDrawn {
-			return errAlreadyDrawn
-		}
-		p := s.participantNamed(name)
-		if p == nil || !p.joined() {
-			return os.ErrNotExist
-		}
-		change(p)
-		updated, invitee = *s, *p
-		return nil
-	})
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		http.NotFound(w, r)
-	case errors.Is(err, errAlreadyDrawn):
+	case sess.State == stateDrawn:
 		http.Error(w, "already drawn", http.StatusConflict)
-	case err != nil:
-		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
-		if err := a.sendInvite(updated, invitee); err != nil {
+		if err := a.sendLinks(sess, *p); err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, "/session/"+hash, http.StatusSeeOther)
+		http.Redirect(w, r, "/session/"+sess.Hash, http.StatusSeeOther)
 	}
 }
 
-// rowsFromForm reads the parallel name/email fields; the first row is the Organizer.
+// rowsFromForm reads the name fields and the Organizer's email; the first row
+// is the Organizer's.
 func rowsFromForm(r *http.Request) []rowView {
-	names, emails := r.PostForm["name"], r.PostForm["email"]
 	var rows []rowView
-	for i, name := range names {
+	for i, name := range r.PostForm["name"] {
 		row := rowView{Me: i == 0, Name: strings.TrimSpace(name)}
-		if i < len(emails) {
-			row.Email = strings.TrimSpace(emails[i])
+		if row.Me {
+			row.Email = strings.TrimSpace(r.PostForm.Get("email"))
 		}
 		rows = append(rows, row)
 	}
@@ -214,8 +180,8 @@ func validate(rows []rowView) []string {
 			dupName = true
 		}
 		seen[key] = true
-		// Only the Organizer must give an email; the others may join later.
-		badEmail = badEmail || (row.Me || row.Email != "") && !plausibleEmail(row.Email)
+		// Only the Organizer gives an email; the others do so when they join.
+		badEmail = badEmail || row.Me && !plausibleEmail(row.Email)
 	}
 	if emptyName {
 		errKeys = append(errKeys, "err_empty_name")

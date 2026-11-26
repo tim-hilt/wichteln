@@ -106,13 +106,9 @@ button.icon { padding: .5rem .75rem; }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 
 /* Creation form: one grid so every row lines up */
-.participant-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: .5rem;
-  align-items: center;
-}
-.participant-grid .row { display: contents; }
+.participant-grid { display: grid; gap: .5rem; }
+.participant-grid .row { display: flex; gap: .5rem; align-items: center; }
+.participant-grid .row input { flex: 1; min-width: 0; }
 
 /* Status page */
 .participants { list-style: none; padding: 0; display: grid; gap: .75rem; }

@@ -7,98 +7,84 @@ import (
 	"testing"
 )
 
-func TestCorrectEmailPersistsAndSendsInviteToNewAddress(t *testing.T) {
-	dir := t.TempDir()
-	c := newClient(t, dir)
-	session, p := openSession(t, c)
+func TestResendToJoinedParticipantSendsConfirmationInTheirLanguage(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session, join := openJoinSession(t, c)
+	loc := c.do("POST", join, "de", joinForm("Cleo", "cleo@x.de", "w")).Header().Get("Location")
 	before := len(c.mailer.sent)
-
-	rec := c.do("POST", session+"/email", "de", url.Values{"participant": {"Ben"}, "email": {"ben@new.de"}})
-	if rec.Code != http.StatusSeeOther {
+	// The request's language (en) is not used, Cleo's (de) is.
+	if rec := c.do("POST", session+"/resend", "en", url.Values{"participant": {"Cleo"}}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("status %d", rec.Code)
 	}
 	sent := c.mailer.sent[before:]
-	// The Organizer's language (en, from creation) is used, not the request's.
-	if len(sent) != 1 || sent[0].to != "ben@new.de" || !strings.Contains(sent[0].body, "Hello Ben") || !strings.HasSuffix(strings.TrimSpace(sent[0].body), p["Ben"]) {
-		t.Fatalf("unexpected mails: %+v", sent)
-	}
-	page := newClient(t, dir).do("GET", session, "en", nil).Body.String()
-	if !strings.Contains(page, "ben@new.de") || strings.Contains(page, "ben@x.de") {
-		t.Errorf("email not persisted:\n%s", page)
-	}
-	for _, n := range []string{"Anna", "Ben", "Cleo"} {
-		if !strings.Contains(page, n) {
-			t.Errorf("name %s missing", n)
-		}
-	}
-}
-
-func TestInvalidCorrectedEmailIsRejected(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	session, _ := openSession(t, c)
-	before := len(c.mailer.sent)
-	rec := c.do("POST", session+"/email", "en", url.Values{"participant": {"Ben"}, "email": {"nope"}})
-	if rec.Code != http.StatusUnprocessableEntity || len(c.mailer.sent) != before {
-		t.Errorf("status %d, mails %d", rec.Code, len(c.mailer.sent)-before)
-	}
-	if page := c.do("GET", session, "en", nil).Body.String(); !strings.Contains(page, "ben@x.de") {
-		t.Errorf("email changed:\n%s", page)
-	}
-}
-
-func TestResendSendsInviteToCurrentAddress(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	session, p := openSession(t, c)
-	before := len(c.mailer.sent)
-	if rec := c.do("POST", session+"/resend", "de", url.Values{"participant": {"Cleo"}}); rec.Code != http.StatusSeeOther {
-		t.Fatalf("status %d", rec.Code)
-	}
-	sent := c.mailer.sent[before:]
-	if len(sent) != 1 || sent[0].to != "cleo@x.de" || !strings.Contains(sent[0].body, "Hello Cleo") || !strings.HasSuffix(strings.TrimSpace(sent[0].body), p["Cleo"]) {
+	if len(sent) != 1 || sent[0].to != "cleo@x.de" || !strings.Contains(sent[0].body, "Hallo Cleo") || !strings.Contains(sent[0].body, "http://example.test"+loc) {
 		t.Fatalf("unexpected mails: %+v", sent)
 	}
 }
 
-func TestUnknownParticipantIs404(t *testing.T) {
+func TestResendToOrganizerSendsCompleteEmailInOrganizerLanguage(t *testing.T) {
 	c := newClient(t, t.TempDir())
-	session, _ := openSession(t, c)
-	for _, action := range []string{"/resend", "/email"} {
-		if rec := c.do("POST", session+action, "en", url.Values{"participant": {"Zed"}, "email": {"z@x.de"}}); rec.Code != http.StatusNotFound {
-			t.Errorf("%s: status %d", action, rec.Code)
+	session, join, anna := createAnnaSession(t, c, "de")
+	before := len(c.mailer.sent)
+	if rec := c.do("POST", session+"/resend", "en", url.Values{"participant": {"Anna"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status %d", rec.Code)
+	}
+	sent := c.mailer.sent[before:]
+	if len(sent) != 1 || sent[0].to != "anna@x.de" || !strings.Contains(sent[0].body, "Hallo Anna") {
+		t.Fatalf("unexpected mails: %+v", sent)
+	}
+	for _, want := range []string{session, join, anna} {
+		if !strings.Contains(sent[0].body, want) {
+			t.Errorf("email missing %q:\n%s", want, sent[0].body)
 		}
 	}
 }
 
-func TestSessionPageOffersActionsOnlyBeforeDraw(t *testing.T) {
+func TestResendIsNotAvailableForUnknownOrNotJoinedNames(t *testing.T) {
 	c := newClient(t, t.TempDir())
-	session, p := openSession(t, c)
-	page := c.do("GET", session, "en", nil).Body.String()
-	if !strings.Contains(page, session+"/email") || !strings.Contains(page, session+"/resend") {
-		t.Errorf("actions missing:\n%s", page)
-	}
-	submitAll(t, c, p, "en", nil)
-	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "/email") || strings.Contains(page, "/resend") {
-		t.Errorf("actions shown after Draw:\n%s", page)
-	}
-}
-
-func TestActionsRejectedAfterDraw(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	session, p := openSession(t, c)
-	submitAll(t, c, p, "en", nil)
+	session, _ := openJoinSession(t, c)
 	before := len(c.mailer.sent)
-	for action, f := range map[string]url.Values{
-		"/email":  {"participant": {"Ben"}, "email": {"ben@new.de"}},
-		"/resend": {"participant": {"Ben"}},
-	} {
-		if rec := c.do("POST", session+action, "en", f); rec.Code != http.StatusConflict {
-			t.Errorf("%s: status %d", action, rec.Code)
+	for _, name := range []string{"Zed", "Ben"} {
+		if rec := c.do("POST", session+"/resend", "en", url.Values{"participant": {name}}); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: status %d", name, rec.Code)
 		}
 	}
 	if len(c.mailer.sent) != before {
-		t.Errorf("mail sent after Draw")
+		t.Error("mail sent")
 	}
-	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "ben@new.de") {
-		t.Errorf("email changed after Draw")
+	page := c.do("GET", session, "en", nil).Body.String()
+	if n := strings.Count(page, "Resend link"); n != 1 {
+		t.Errorf("want Resend only for Anna, got %d:\n%s", n, page)
+	}
+}
+
+func TestOrganizerCorrectEmailRouteIsRemoved(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session, _ := openJoinSession(t, c)
+	rec := c.do("POST", session+"/email", "en", url.Values{"participant": {"Anna"}, "email": {"new@x.de"}})
+	if rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status %d", rec.Code)
+	}
+	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, session+"/email") {
+		t.Error("session page still offers email correction")
+	}
+}
+
+func TestResendOnlyBeforeDraw(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session, p := openSession(t, c)
+	if page := c.do("GET", session, "en", nil).Body.String(); !strings.Contains(page, session+"/resend") {
+		t.Errorf("resend missing:\n%s", page)
+	}
+	submitAll(t, c, p, "en", nil)
+	before := len(c.mailer.sent)
+	if rec := c.do("POST", session+"/resend", "en", url.Values{"participant": {"Ben"}}); rec.Code != http.StatusConflict {
+		t.Errorf("status %d", rec.Code)
+	}
+	if len(c.mailer.sent) != before {
+		t.Error("mail sent after Draw")
+	}
+	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "/resend") {
+		t.Errorf("resend shown after Draw:\n%s", page)
 	}
 }

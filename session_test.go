@@ -72,16 +72,17 @@ func (c *client) createSession() string {
 	return loc
 }
 
-func form(rows ...string) url.Values {
-	v := url.Values{}
-	for i := 0; i+1 < len(rows); i += 2 {
-		v.Add("name", rows[i])
-		v.Add("email", rows[i+1])
+// form is the creation form: the Organizer's email, then one row per name,
+// the first being the Organizer's.
+func form(organizerEmail string, names ...string) url.Values {
+	v := url.Values{"email": {organizerEmail}}
+	for _, n := range names {
+		v.Add("name", n)
 	}
 	return v
 }
 
-var threeRows = form("Anna", "anna@x.de", "Ben", "ben@x.de", "Cleo", "cleo@x.de")
+var threeRows = form("anna@x.de", "Anna", "Ben", "Cleo")
 
 func TestCreateRedirectsToFreshSessionLinks(t *testing.T) {
 	c := newClient(t, t.TempDir())
@@ -114,64 +115,82 @@ func TestGermanFormLabelsOrganizerRowIch(t *testing.T) {
 	}
 }
 
-func TestParticipantRowFragment(t *testing.T) {
+func TestParticipantRowFragmentIsNameOnly(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	rec := c.do("GET", "/participant-row", "en", nil)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `name="email"`) || strings.Contains(rec.Body.String(), "<html") {
-		t.Errorf("want bare row fragment, got %d:\n%s", rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, `name="name"`) || strings.Contains(body, `name="email"`) || strings.Contains(body, "<html") {
+		t.Errorf("want bare name-only row fragment, got %d:\n%s", rec.Code, body)
 	}
 }
 
-func TestSubmitCreatesSessionAndInvitesEveryone(t *testing.T) {
+func TestCreationFormAsksEmailOnlyInOrganizerRow(t *testing.T) {
 	c := newClient(t, t.TempDir())
-	link := c.createSession()
-	rec := c.do("POST", link, "en", threeRows)
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != link {
-		t.Fatalf("submit: status %d, location %q", rec.Code, rec.Header().Get("Location"))
+	body := c.do("GET", c.createSession(), "en", nil).Body.String()
+	if n := strings.Count(body, `name="email"`); n != 1 {
+		t.Errorf("want exactly one email field, got %d:\n%s", n, body)
 	}
-	if len(c.mailer.sent) != 3 {
-		t.Fatalf("want 3 invitations, got %d", len(c.mailer.sent))
-	}
-	links := map[string]bool{}
-	for i, to := range []string{"anna@x.de", "ben@x.de", "cleo@x.de"} {
-		m := c.mailer.sent[i]
-		found := regexp.MustCompile(`http://example\.test/[a-z2-7]{26}`).FindString(m.body)
-		if m.to != to || found == "" || !strings.Contains(m.body, "Invitation") && !strings.Contains(m.subject, "Invitation") {
-			t.Errorf("bad invitation %d: %+v", i, m)
-		}
-		links[found] = true
-	}
-	if len(links) != 3 {
-		t.Errorf("Personal links not distinct: %v", links)
-	}
+}
 
-	page := c.do("GET", link, "en", nil).Body.String()
-	for _, want := range []string{"Anna", "anna@x.de", "Cleo", "pending"} {
+func TestCreateEmailsOnlyOrganizerWithAllThreeLinks(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	link, join, anna := createAnnaSession(t, c, "en")
+	if len(c.mailer.sent) != 1 {
+		t.Fatalf("want exactly 1 email, got %d", len(c.mailer.sent))
+	}
+	m := c.mailer.sent[0]
+	if m.to != "anna@x.de" || !strings.Contains(m.body, "Hello Anna") {
+		t.Errorf("bad email: %+v", m)
+	}
+	for _, want := range []string{"http://example.test" + link, "http://example.test" + join, "http://example.test" + anna} {
+		if !strings.Contains(m.body, want) || !strings.Contains(m.html, want) {
+			t.Errorf("email missing %q:\n%s", want, m.body)
+		}
+	}
+	if rec := c.do("GET", anna, "en", nil); rec.Code != 200 {
+		t.Errorf("Personal link from email: status %d", rec.Code)
+	}
+}
+
+func TestOrganizerEmailUsesOrganizerLanguage(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	createAnnaSession(t, c, "de")
+	if m := c.mailer.sent[0]; !strings.Contains(m.body, "Hallo Anna") || !strings.Contains(m.body, "Beitrittslink") {
+		t.Errorf("want German Organizer email: %+v", m)
+	}
+}
+
+func TestSessionPageShowsStatusesAndNoEmailAddresses(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session, join := openJoinSession(t, c)
+	c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "w"))
+	page := c.do("GET", session, "en", nil).Body.String()
+	for _, want := range []string{"Anna", "pending", "Ben", "joined", "Cleo", "not joined"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("session page missing %q:\n%s", want, page)
 		}
 	}
-	if strings.Contains(page, `name="name"`) {
-		t.Error("participants still editable after submit")
+	if strings.Contains(page, "@x.de") || strings.Contains(page, `name="email"`) || strings.Contains(page, `name="name"`) {
+		t.Errorf("session page shows or asks emails, or is editable:\n%s", page)
 	}
 }
 
-func TestInvitationsUseOrganizerLanguage(t *testing.T) {
+func TestOrganizerRowTurnsJoinedAfterTheirWish(t *testing.T) {
 	c := newClient(t, t.TempDir())
-	c.do("POST", c.createSession(), "de", threeRows)
-	if m := c.mailer.sent[0]; !strings.Contains(m.subject+m.body, "Einladung") {
-		t.Errorf("want German invitation: %+v", m)
+	session, join, anna := createAnnaSession(t, c, "en")
+	row := func() string {
+		page := c.do("GET", session, "en", nil).Body.String()
+		return page[strings.Index(page, "Anna"):strings.Index(page, "Ben")]
 	}
-}
-
-func TestInvitationHasHTMLVersionWithButton(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	_, p := openSession(t, c)
-	m := c.mailer.sent[1]
-	for _, want := range []string{"Hello Ben", `href="http://example.test` + p["Ben"] + `"`, "Open your Personal link", "<html"} {
-		if !strings.Contains(m.html, want) {
-			t.Errorf("html invitation missing %q:\n%s", want, m.html)
-		}
+	if r := row(); !strings.Contains(r, "pending") {
+		t.Errorf("want pending:\n%s", r)
+	}
+	c.do("POST", anna, "en", wishForm("w"))
+	if r := row(); !strings.Contains(r, "joined") || strings.Contains(r, "pending") {
+		t.Errorf("want joined:\n%s", r)
+	}
+	if strings.Contains(c.do("GET", join, "en", nil).Body.String(), "Anna") {
+		t.Error("Organizer listed on Join page")
 	}
 }
 
@@ -179,8 +198,8 @@ func TestSubmitToExistingSessionIsRejected(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	link := c.createSession()
 	c.do("POST", link, "en", threeRows)
-	rec := c.do("POST", link, "en", form("X", "x@x.de", "Y", "y@x.de", "Z", "z@x.de"))
-	if rec.Code != http.StatusConflict || len(c.mailer.sent) != 3 {
+	rec := c.do("POST", link, "en", form("x@x.de", "X", "Y", "Z"))
+	if rec.Code != http.StatusConflict || len(c.mailer.sent) != 1 {
 		t.Errorf("status %d, mails %d", rec.Code, len(c.mailer.sent))
 	}
 }
@@ -191,10 +210,11 @@ func TestValidationErrorsKeepRows(t *testing.T) {
 		in   url.Values
 		want string
 	}{
-		{"too few", form("Anna", "anna@x.de", "Ben", "ben@x.de"), "at least 3"},
-		{"empty name", form("Anna", "anna@x.de", " ", "ben@x.de", "Cleo", "cleo@x.de"), "Names must not be empty"},
-		{"duplicate name", form("Anna", "anna@x.de", "ANNA", "ben@x.de", "Cleo", "cleo@x.de"), "must be unique"},
-		{"bad email", form("Anna", "anna@x.de", "Ben", "ben-at-x", "Cleo", "cleo@x.de"), "valid email"},
+		{"too few", form("anna@x.de", "Anna", "Ben"), "at least 3"},
+		{"empty name", form("anna@x.de", "Anna", " ", "Cleo"), "Names must not be empty"},
+		{"duplicate name", form("anna@x.de", "Anna", "ANNA", "Cleo"), "must be unique"},
+		{"bad email", form("anna-at-x", "Anna", "Ben", "Cleo"), "valid email"},
+		{"no email", form("", "Anna", "Ben", "Cleo"), "valid email"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,7 +225,7 @@ func TestValidationErrorsKeepRows(t *testing.T) {
 			if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, tt.want) {
 				t.Errorf("status %d, want %q in:\n%s", rec.Code, tt.want, body)
 			}
-			if !strings.Contains(body, `value="Anna"`) || !strings.Contains(body, `value="anna@x.de"`) {
+			if !strings.Contains(body, `value="Anna"`) || !strings.Contains(body, `value="`+tt.in.Get("email")+`"`) {
 				t.Error("entered rows not kept")
 			}
 			if len(c.mailer.sent) != 0 {
@@ -220,17 +240,9 @@ func TestValidationErrorsKeepRows(t *testing.T) {
 
 func TestValidationErrorsAreLocalized(t *testing.T) {
 	c := newClient(t, t.TempDir())
-	body := c.do("POST", c.createSession(), "de", form("A", "a@x.de")).Body.String()
+	body := c.do("POST", c.createSession(), "de", form("a@x.de", "A")).Body.String()
 	if !strings.Contains(body, "mindestens 3") {
 		t.Errorf("want German error:\n%s", body)
-	}
-}
-
-func TestDuplicateEmailsAllowed(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	rec := c.do("POST", c.createSession(), "en", form("Anna", "f@x.de", "Ben", "f@x.de", "Cleo", "f@x.de"))
-	if rec.Code != http.StatusSeeOther {
-		t.Errorf("status %d", rec.Code)
 	}
 }
 

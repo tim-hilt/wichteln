@@ -126,7 +126,7 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 // sendJoinConfirmation emails the joiner their Personal link in their language.
 func (a *app) sendJoinConfirmation(p Participant) error {
 	t := catalog[p.Lang]
-	return a.send(p, t["join_subject"], mailView{T: t, Intro: t["join_intro"], Links: []mailLink{{t["invite_button"], a.baseURL + "/" + p.Hash}}})
+	return a.send(p, t["join_subject"], mailView{T: t, Intro: t["join_intro"], Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
 }
 
 func renderJoinSelection(w http.ResponseWriter, r *http.Request, status int, sess Session, errMsg string) {

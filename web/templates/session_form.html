@@ -3,7 +3,6 @@
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/session/{{.Hash}}">
       <div id="rows" class="participant-grid">
-        <span class="label">{{.T.name}}</span><span class="label">{{.T.email}}</span><span></span>
         {{range .Rows}}{{template "participant_row.html" .}}{{end}}
       </div>
       <div class="actions">

@@ -8,45 +8,11 @@ import (
 	"testing"
 )
 
-var joinLinkRe = regexp.MustCompile(`/join/[a-z2-7]{26}`)
-
-// openJoinSession creates a Session where only Anna (the Organizer) has an
-// email, and returns the Session link and the Join link path.
-func openJoinSession(t *testing.T, c *client) (session, join string) {
-	t.Helper()
-	session = c.createSession()
-	rec := c.do("POST", session, "en", form("Anna", "anna@x.de", "Ben", "", "Cleo", ""))
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("create: status %d:\n%s", rec.Code, rec.Body.String())
-	}
-	join = joinLinkRe.FindString(c.do("GET", session, "en", nil).Body.String())
-	if join == "" {
-		t.Fatal("session page shows no Join link")
-	}
-	return session, join
-}
-
 func joinForm(name, email, wish string, excluded ...string) url.Values {
 	v := wishForm(wish, excluded...)
 	v.Set("name", name)
 	v.Set("email", email)
 	return v
-}
-
-func TestNamesWithoutEmailAreNotInvited(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	openJoinSession(t, c)
-	if len(c.mailer.sent) != 1 || c.mailer.sent[0].to != "anna@x.de" {
-		t.Errorf("want only the Organizer invited, got %+v", c.mailer.sent)
-	}
-}
-
-func TestOrganizerEmailStillRequired(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	rec := c.do("POST", c.createSession(), "en", form("Anna", "", "Ben", "", "Cleo", ""))
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status %d", rec.Code)
-	}
 }
 
 func TestSessionPageShowsJoinLinkAndStatusesOnly(t *testing.T) {
@@ -181,13 +147,7 @@ func TestSecondJoinOfSameNameIsConflict(t *testing.T) {
 
 func TestLastJoinTriggersDrawToJoinedAddressesThenJoiningIsClosed(t *testing.T) {
 	c := newClient(t, t.TempDir())
-	_, join := openJoinSession(t, c)
-	var anna string
-	for _, m := range c.mailer.sent {
-		if m.to == "anna@x.de" {
-			anna = "/" + personalLinkRe.FindStringSubmatch(m.body)[1]
-		}
-	}
+	_, join, anna := createAnnaSession(t, c, "en")
 	c.do("POST", anna, "en", wishForm("a"))
 	c.do("POST", join, "en", joinForm("Ben", "ben@x.de", "b"))
 	before := len(c.mailer.sent)

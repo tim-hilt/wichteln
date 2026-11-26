@@ -21,11 +21,6 @@
             <button class="secondary">{{$.T.resend}}</button>
           </form>{{end}}
         </div>
-        {{if .Hash}}<form method="post" action="/session/{{$.Session.Hash}}/email" class="inline">
-          <input type="hidden" name="participant" value="{{.Name}}">
-          <input type="email" name="email" value="{{.Email}}" required aria-label="{{$.T.email}}">
-          <button class="secondary">{{$.T.save_email}}</button>
-        </form>{{end}}
       </li>
       {{end}}
     </ul>

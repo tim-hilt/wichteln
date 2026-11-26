@@ -7,12 +7,13 @@ import (
 	"testing"
 )
 
-// submitAll submits Anna, Ben and Cleo (in that order) with wish "<name>-wish"
-// and returns the mails sent by the Draw (everything after the invitations).
+// submitAll submits Ben, Cleo and Anna (the last missing Submission, see
+// openSession) with wish "<name>-wish" and the given exclusions, and returns
+// the mails sent by the Draw.
 func submitAll(t *testing.T, c *client, p map[string]string, lang string, excl map[string][]string) []sentMail {
 	t.Helper()
 	before := len(c.mailer.sent)
-	for _, n := range []string{"Anna", "Ben", "Cleo"} {
+	for _, n := range []string{"Ben", "Cleo", "Anna"} {
 		if rec := c.do("POST", p[n], lang, wishForm(n+"-wish", excl[n]...)); rec.Code != http.StatusSeeOther {
 			t.Fatalf("%s: status %d", n, rec.Code)
 		}
@@ -23,14 +24,17 @@ func submitAll(t *testing.T, c *client, p map[string]string, lang string, excl m
 func TestNoDrawUntilLastSubmission(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, p := openSession(t, c)
-	before := len(c.mailer.sent)
-	c.do("POST", p["Anna"], "en", wishForm("a"))
+	before := len(c.mailer.sent) // Ben and Cleo have joined, Anna has not submitted
 	c.do("POST", p["Ben"], "en", wishForm("b"))
 	if len(c.mailer.sent) != before {
 		t.Errorf("mail sent before last Submission")
 	}
 	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "Drawn") {
 		t.Errorf("drawn too early:\n%s", page)
+	}
+	c.do("POST", p["Anna"], "en", wishForm("a"))
+	if page := c.do("GET", session, "en", nil).Body.String(); !strings.Contains(page, "Drawn") {
+		t.Errorf("not drawn after last Submission:\n%s", page)
 	}
 }
 
@@ -97,13 +101,11 @@ func TestFullFlowDrawSendsValidAssignmentsToEveryone(t *testing.T) {
 func TestSimultaneousLastSubmissionsDrawOnce(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	_, p := openSession(t, c)
-	c.do("POST", p["Anna"], "en", wishForm("a"))
-	c.do("POST", p["Ben"], "en", wishForm("b"))
 	before := len(c.mailer.sent)
 	codes := make([]int, 2)
 	var wg sync.WaitGroup
 	for i := range codes {
-		wg.Go(func() { codes[i] = c.do("POST", p["Cleo"], "en", wishForm("c")).Code })
+		wg.Go(func() { codes[i] = c.do("POST", p["Anna"], "en", wishForm("a")).Code })
 	}
 	wg.Wait()
 	if drawMails := len(c.mailer.sent) - before; drawMails != 3 {
@@ -114,8 +116,6 @@ func TestSimultaneousLastSubmissionsDrawOnce(t *testing.T) {
 func TestFailedDrawEmailDoesNotStopTheOthers(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	_, p := openSession(t, c)
-	c.do("POST", p["Ben"], "en", wishForm("b"))
-	c.do("POST", p["Cleo"], "en", wishForm("c"))
 	before := len(c.mailer.sent)
 	c.mailer.failTo = "anna@x.de" // the first Participant
 	if rec := c.do("POST", p["Anna"], "en", wishForm("a")); rec.Code != http.StatusInternalServerError {
@@ -129,14 +129,12 @@ func TestFailedDrawEmailDoesNotStopTheOthers(t *testing.T) {
 func TestDrawEmailUsesLanguageOfLastSubmission(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	_, p := openSession(t, c)
-	c.do("POST", p["Anna"], "en", wishForm("Anna-wish"))
-	c.do("POST", p["Ben"], "en", wishForm("Ben-wish"))
-	c.do("POST", p["Anna"], "de", wishForm("Anna-wish")) // edit in German
 	before := len(c.mailer.sent)
-	c.do("POST", p["Cleo"], "en", wishForm("Cleo-wish"))
+	c.do("POST", p["Cleo"], "de", wishForm("Cleo-wish")) // edit in German
+	c.do("POST", p["Anna"], "en", wishForm("Anna-wish")) // last Submission
 	for _, m := range c.mailer.sent[before:] {
 		german := strings.Contains(m.subject, "Zuteilung")
-		if (m.to == "anna@x.de") != german {
+		if (m.to == "cleo@x.de") != german {
 			t.Errorf("mail to %s subject %q", m.to, m.subject)
 		}
 	}
@@ -160,7 +158,7 @@ func TestDrawEmailHTMLShowsEscapedWish(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	_, p := openSession(t, c)
 	before := len(c.mailer.sent)
-	for _, n := range []string{"Anna", "Ben", "Cleo"} {
+	for _, n := range []string{"Ben", "Cleo", "Anna"} {
 		c.do("POST", p[n], "en", wishForm("Books & <cookies>"))
 	}
 	mails := c.mailer.sent[before:]
