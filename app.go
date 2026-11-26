@@ -39,6 +39,7 @@ func NewApp(dataDir string, mailer Mailer, baseURL string, random io.Reader) htt
 	mux.HandleFunc("POST /new", a.createSessionLink)
 	mux.HandleFunc("POST /open-session", a.openSession)
 	mux.HandleFunc("POST /open-link", a.openLink)
+	mux.HandleFunc("POST /open-join", a.openJoin)
 	mux.HandleFunc("GET /session/{hash}", a.session)
 	mux.HandleFunc("POST /session/{hash}", a.submitSession)
 	mux.HandleFunc("POST /session/{hash}/resend", a.resendLink)
@@ -91,6 +92,14 @@ func (a *app) openLink(w http.ResponseWriter, r *http.Request) {
 	a.open(w, r, func(hash string) (string, bool, error) {
 		sess, ok, err := a.store.LoadByPersonalLink(hash)
 		return "/" + hash, ok && sess.participant(hash) != nil, err
+	})
+}
+
+// openJoin redirects to the join page whose Join hash or link was pasted.
+func (a *app) openJoin(w http.ResponseWriter, r *http.Request) {
+	a.open(w, r, func(hash string) (string, bool, error) {
+		_, ok, err := a.store.LoadByJoinLink(hash)
+		return "/join/" + hash, ok, err
 	})
 }
 

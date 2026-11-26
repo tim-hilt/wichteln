@@ -47,3 +47,29 @@ func TestOpenFromWelcomePage(t *testing.T) {
 		t.Errorf("link hash opened as session: %d", rec.Code)
 	}
 }
+
+func TestJoinFromWelcomePage(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	_, join, _ := createAnnaSession(t, c, "en")
+	hash := strings.TrimPrefix(join, "/join/")
+
+	for _, input := range []string{hash, "http://example.test" + join + "/", "http://example.test" + join + "?name=Ben#x"} {
+		rec := c.do("POST", "/open-join", "en", url.Values{"hash": {input}})
+		if rec.Code != 303 || rec.Header().Get("Location") != join {
+			t.Errorf("%q: status %d, location %q, want %q", input, rec.Code, rec.Header().Get("Location"), join)
+		}
+	}
+
+	for _, input := range []string{"aaaaaaaaaaaaaaaaaaaaaaaaaa", "garbage"} {
+		rec := c.do("POST", "/open-join", "de", url.Values{"hash": {input}})
+		body := rec.Body.String()
+		if rec.Code != 404 || !strings.Contains(body, "Nicht gefunden") || !strings.Contains(body, `value="`+input+`"`) {
+			t.Errorf("%q: status %d, body:\n%s", input, rec.Code, body)
+		}
+	}
+
+	// A Join hash is not a Personal link.
+	if rec := c.do("POST", "/open-link", "en", url.Values{"hash": {hash}}); rec.Code != 404 {
+		t.Errorf("join hash opened as link: %d", rec.Code)
+	}
+}

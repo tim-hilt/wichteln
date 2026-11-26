@@ -22,4 +22,14 @@
         {{if eq .Form "/open-link"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
       </div>
     </form>
+    <form method="post" action="/open-join">
+      <div class="field">
+        <label for="join-hash">{{.T.open_join}}</label>
+        <div class="inline">
+          <input id="join-hash" name="hash" required placeholder="{{.T.join_hash}}"{{if eq .Form "/open-join"}} value="{{.Input}}"{{end}}>
+          <button class="secondary">{{.T.go}}</button>
+        </div>
+        {{if eq .Form "/open-join"}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+      </div>
+    </form>
 {{template "footer" .}}
