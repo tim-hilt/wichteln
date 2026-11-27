@@ -4,15 +4,15 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 Spec: `.scratch/edit-names/spec.md`
 
-- [ ] A Save that makes the Draw impossible saves nothing and shows a confirmation page with the affected Participants' names, never who excludes whom
-- [ ] Confirm posts the full list again with the affected names as hidden fields
-- [ ] On confirm the affected set is recomputed inside the update; if it differs from the posted one, the confirmation is shown again and nothing is saved
-- [ ] The Exclusions to drop are chosen deterministically: all dropped, then re-added in Participant order then name order, each kept only if the Draw stays possible; covered by a unit test
-- [ ] Each affected Participant is un-submitted, so the Draw waits for them
-- [ ] Each affected Participant gets one email naming the removed person, linking to their Personal link, in their own language
-- [ ] After they confirm again, the Draw runs as usual
-- [ ] All new texts in DE and EN
+- [x] A Save that makes the Draw impossible saves nothing and shows a confirmation page with the affected Participants' names, never who excludes whom
+- [x] Confirm posts the full list again with the affected names as hidden fields
+- [x] On confirm the affected set is recomputed inside the update; if it differs from the posted one, the confirmation is shown again and nothing is saved
+- [x] The Exclusions to drop are chosen deterministically: all dropped, then re-added in Participant order then name order, each kept only if the Draw stays possible; covered by a unit test
+- [x] Each affected Participant is un-submitted, so the Draw waits for them
+- [x] Each affected Participant gets one email naming the removed person, linking to their Personal link, in their own language
+- [x] After they confirm again, the Draw runs as usual
+- [x] All new texts in DE and EN

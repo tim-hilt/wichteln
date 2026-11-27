@@ -96,3 +96,15 @@ func (a *app) notifyNamesAdded(s Session, p Participant, added []string) error {
 	return a.send(p, t["names_added_subject"], mailView{T: t, Intro: fmt.Sprintf(t["names_added_intro"], strings.Join(added, ", ")),
 		Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
 }
+
+// notifyExclusionsReset tells a Participant, in their language, that removing
+// names made them lose Exclusions and that they must confirm their Submission
+// again on their Personal link.
+func (a *app) notifyExclusionsReset(s Session, p Participant, removed []string) error {
+	if p.Lang == "" {
+		p.Lang = s.Lang
+	}
+	t := catalog[p.Lang]
+	return a.send(p, t["exclusions_reset_subject"], mailView{T: t, Intro: fmt.Sprintf(t["exclusions_reset_intro"], strings.Join(removed, ", ")),
+		Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
+}

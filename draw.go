@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"math/rand/v2"
+	"slices"
 )
 
 // DrawPossible reports whether the Session's Participants, with their current
@@ -13,6 +14,34 @@ func DrawPossible(participants []Participant) bool {
 	// Feasibility does not depend on the randomness, so any fixed seed works.
 	_, err := drawParticipants(participants, rand.New(rand.NewPCG(0, 0)))
 	return err == nil
+}
+
+// dropExclusions removes as few Exclusions as needed from the Participants so
+// that a valid Draw exists, and returns the names of the Participants who lost
+// some, in Participant order. All Exclusions start out dropped and are re-added
+// in Participant order, then name order, each kept only if the Draw stays
+// possible, so the result is deterministic. Without any Exclusion the Draw is
+// possible for at least 3 Participants.
+func dropExclusions(participants []Participant) []string {
+	wanted := make([][]string, len(participants))
+	for i := range participants {
+		wanted[i] = slices.Sorted(slices.Values(participants[i].Exclusions))
+		participants[i].Exclusions = nil
+	}
+	var affected []string
+	for i := range participants {
+		p := &participants[i]
+		for _, name := range wanted[i] {
+			p.Exclusions = append(p.Exclusions, name)
+			if !DrawPossible(participants) {
+				p.Exclusions = p.Exclusions[:len(p.Exclusions)-1]
+			}
+		}
+		if len(p.Exclusions) < len(wanted[i]) {
+			affected = append(affected, p.Name)
+		}
+	}
+	return affected
 }
 
 // drawParticipants runs Draw for the Participants, mapping their Exclusions

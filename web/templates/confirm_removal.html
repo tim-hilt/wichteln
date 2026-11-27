@@ -1,0 +1,13 @@
+{{template "header" .}}
+    <h2>{{.T.confirm_removal_title}}</h2>
+    <p>{{.T.confirm_removal_intro}}</p>
+    <ul class="participants">
+      {{range .Affected}}<li><strong>{{.}}</strong></li>
+      {{end}}
+    </ul>
+    <form method="post" action="/session/{{.Hash}}/names">
+      {{range .Names}}<input type="hidden" name="name" value="{{.}}">
+      {{end}}{{range .Affected}}<input type="hidden" name="affected" value="{{.}}">
+      {{end}}<div class="actions"><button>{{.T.confirm_removal}}</button></div>
+    </form>
+{{template "footer" .}}

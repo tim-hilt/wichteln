@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"testing"
 )
 
@@ -137,5 +138,36 @@ func TestDrawVaries(t *testing.T) {
 	}
 	if len(seen) < 2 {
 		t.Errorf("only %d distinct outcome across %d runs", len(seen), drawRuns)
+	}
+}
+
+func TestDropExclusionsKeepsAsManyAsPossibleDeterministically(t *testing.T) {
+	// Dropped in Participant order, then name order: Anna's Exclusion stays,
+	// Ben's would clash with it, and of Cleo's only the one on Anna fits.
+	mk := func() []Participant {
+		return []Participant{
+			{Name: "Anna", Exclusions: []string{"Ben"}},
+			{Name: "Ben", Exclusions: []string{"Anna"}},
+			{Name: "Cleo", Exclusions: []string{"Ben", "Anna"}},
+		}
+	}
+	ps := mk()
+	affected := dropExclusions(ps)
+	if !DrawPossible(ps) {
+		t.Fatal("Draw still impossible")
+	}
+	if got := strings.Join(affected, ","); got != "Ben,Cleo" {
+		t.Errorf("affected %q, want Ben,Cleo", got)
+	}
+	if got := ps[0].Exclusions; len(got) != 1 || got[0] != "Ben" {
+		t.Errorf("Anna's Exclusions %v, want [Ben]", got)
+	}
+	if len(ps[1].Exclusions) != 0 {
+		t.Errorf("Ben's Exclusions %v, want none", ps[1].Exclusions)
+	}
+	again := mk()
+	dropExclusions(again)
+	if fmt.Sprint(again) != fmt.Sprint(ps) {
+		t.Errorf("not deterministic: %v vs %v", again, ps)
 	}
 }

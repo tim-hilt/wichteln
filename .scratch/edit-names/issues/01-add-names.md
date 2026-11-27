@@ -4,18 +4,18 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
 Spec: `.scratch/edit-names/spec.md`
 
-- [ ] The Session page shows an edit form with all names; joined names have no remove button and cannot be edited
-- [ ] Save posts the complete list of names; new names are appended, the Organizer stays first, existing names keep their order
-- [ ] Names are validated with the same rules as creation (trimmed, non-empty, unique case-insensitively); the rules are shared with creation, not copied
-- [ ] On a validation error the form is shown again with status 422 and the entered rows kept
-- [ ] After the Draw, Save returns 409 and changes nothing
-- [ ] An added name is listed on the Join page and can be joined
-- [ ] Every joined Participant gets one email about the added name, in their own language, with their Personal link; nobody is un-submitted
-- [ ] The new name appears in the joined Participants' Exclusions form
-- [ ] An Add never starts the Draw
-- [ ] GLOSSARY.md defines **Add** and the Organizer definition no longer says the Organizer named all Participants at creation
-- [ ] All new texts in DE and EN
+- [x] The Session page shows an edit form with all names; joined names have no remove button and cannot be edited
+- [x] Save posts the complete list of names; new names are appended, the Organizer stays first, existing names keep their order
+- [x] Names are validated with the same rules as creation (trimmed, non-empty, unique case-insensitively); the rules are shared with creation, not copied
+- [x] On a validation error the form is shown again with status 422 and the entered rows kept
+- [x] After the Draw, Save returns 409 and changes nothing
+- [x] An added name is listed on the Join page and can be joined
+- [x] Every joined Participant gets one email about the added name, in their own language, with their Personal link; nobody is un-submitted
+- [x] The new name appears in the joined Participants' Exclusions form
+- [x] An Add never starts the Draw
+- [x] GLOSSARY.md defines **Add** and the Organizer definition no longer says the Organizer named all Participants at creation
+- [x] All new texts in DE and EN
