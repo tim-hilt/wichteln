@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** in-review
+**Status:** done
 
 Spec: `.scratch/edit-names/spec.md`
 

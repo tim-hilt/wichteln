@@ -150,3 +150,15 @@ func TestSaveThatAddsAndResetsSendsOneCombinedEmailToTheAffectedParticipant(t *t
 		})
 	}
 }
+
+func TestConfirmSavesWithoutResetWhenNoExclusionHasToGoAnyMore(t *testing.T) {
+	c, session, p := breakingSession(t)
+	c.do("POST", p["Ben"], "en", c.personalForm(p["Ben"], "b")) // Ben drops his Exclusion meanwhile
+	if rec := confirmNames(c, session, "en", []string{"Ben"}, "Anna", "Ben", "Cleo"); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status %d, want the Save applied:\n%s", rec.Code, rec.Body.String())
+	}
+	// Nobody was un-submitted, so removing Dora, the last blocker, Draws.
+	if page := c.do("GET", session, "en", nil).Body.String(); strings.Contains(page, "Dora") || !strings.Contains(page, "The names have been drawn.") {
+		t.Errorf("Dora not removed or not drawn:\n%s", page)
+	}
+}

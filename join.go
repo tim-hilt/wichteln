@@ -43,7 +43,7 @@ func (a *app) joinPage(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case p != nil && !p.joined() && !sess.Drawn():
 		renderJoinForm(w, r, http.StatusOK, sess, Participant{Name: p.Name}, nil)
-	case p == nil && r.URL.Query().Has("name"):
+	case p == nil && name != "":
 		renderJoinSelection(w, r, http.StatusOK, sess, notInSession(r, name))
 	default:
 		renderJoinSelection(w, r, http.StatusOK, sess, "")

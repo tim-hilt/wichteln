@@ -43,32 +43,29 @@ func (a *app) session(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		internalError(w)
 	case ok:
-		a.renderSession(w, r, http.StatusOK, sess, existingRows(sess), nil)
+		var names []string
+		for _, p := range sess.Participants {
+			names = append(names, p.Name)
+		}
+		a.renderSession(w, r, http.StatusOK, sess, names, nil)
 	default:
 		renderForm(w, r, http.StatusOK, hash, []rowView{{Me: true}}, nil)
 	}
 }
 
 // renderSession shows the status page of sess with the edit form filled with
-// rows and the messages for errKeys above it.
-func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, sess Session, rows []rowView, errKeys []string) {
+// names and the messages for errKeys above it. Names joined in sess are fixed.
+func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, sess Session, names []string, errKeys []string) {
 	t := messagesFor(r)
-	for i := range rows {
-		rows[i].T = t
+	rows := make([]rowView, len(names))
+	for i, name := range names {
+		p := sess.participantNamed(name)
+		rows[i] = rowView{T: t, Me: name == sess.organizer().Name, Fixed: p != nil && p.joined(), Name: name}
 	}
 	render(w, status, "session.html", map[string]any{
 		"T": t, "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash,
 		"Rows": rows, "Errors": errorTexts(t, errKeys),
 	})
-}
-
-// existingRows returns one row per name of sess; joined names are Fixed.
-func existingRows(sess Session) []rowView {
-	var rows []rowView
-	for i, p := range sess.Participants {
-		rows = append(rows, rowView{Me: i == 0, Fixed: p.joined(), Name: p.Name})
-	}
-	return rows
 }
 
 // participantRow serves an empty row for HTMX to append to the creation form.

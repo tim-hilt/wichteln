@@ -175,7 +175,9 @@ func submissionError(p Participant) string {
 // returned, otherwise nil. Everything happens in one store update, so two
 // simultaneous Submissions can't each pass the feasibility check on their own
 // and together leave no valid Draw, and the last ones can't Draw twice.
-// change's error aborts the update; a Drawn Session fails with errAlreadyDrawn
+// Exclusions naming no Participant any more (a Removed name, also one Removed
+// while a Submission was in flight) are dropped, so a name Added again later
+// starts clean. change's error aborts the update; a Drawn Session fails with errAlreadyDrawn
 // and exclusions leaving no valid Draw with ErrNoDraw.
 func (a *app) submit(sessionHash string, change func(*Session) error) (drawn *Session, err error) {
 	err = a.store.Update(sessionHash, func(s *Session) error {
@@ -184,6 +186,10 @@ func (a *app) submit(sessionHash string, change func(*Session) error) (drawn *Se
 		}
 		if err := change(s); err != nil {
 			return err
+		}
+		for i := range s.Participants {
+			p := &s.Participants[i]
+			p.Exclusions = slices.DeleteFunc(p.Exclusions, func(name string) bool { return s.participantNamed(name) == nil })
 		}
 		if !DrawPossible(s.Participants) {
 			return ErrNoDraw

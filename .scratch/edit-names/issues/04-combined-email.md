@@ -4,12 +4,12 @@
 
 **Blocked by:** 01, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: `.scratch/edit-names/spec.md`
 
-- [ ] One Save that adds names and resets a Participant's Exclusions sends that Participant exactly one email, mentioning both
-- [ ] Participants only affected by the Add get the Add email; only affected by a reset get the reset email
-- [ ] Mail is sent after the Save succeeded, and every send is attempted even if one fails
-- [ ] Emails contain only the Participant's own information
-- [ ] Combined text in DE and EN
+- [x] One Save that adds names and resets a Participant's Exclusions sends that Participant exactly one email, mentioning both
+- [x] Participants only affected by the Add get the Add email; only affected by a reset get the reset email
+- [x] Mail is sent after the Save succeeded, and every send is attempted even if one fails
+- [x] Emails contain only the Participant's own information
+- [x] Combined text in DE and EN
