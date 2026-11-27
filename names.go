@@ -25,13 +25,14 @@ func (e *needsConfirmation) Error() string { return "removal needs confirmation"
 // Session yet are appended after the existing ones, which keep their order
 // (the Organizer stays first); unjoined names missing from the list are
 // removed and stripped from everyone's Exclusions. Every joined Participant
-// is emailed the added names; nobody is un-submitted. An Add never Draws, a
+// is emailed the added names; nobody is un-submitted by an Add. An Add never Draws, a
 // Remove of the last Participant who has not submitted does.
 // A Remove that leaves no valid Draw saves nothing and shows the names of the
 // affected Participants (never their Exclusions) to confirm. The confirmation
 // posts the names again with the "affected" names as hidden fields; only if
 // they are still exactly the affected ones, the fewest possible Exclusions are
-// dropped, those Participants un-submitted and emailed the removed names.
+// dropped, those Participants un-submitted and emailed the removed names. A Participant
+// affected by both an Add and such a reset gets one combined email.
 // Invalid names re-render the page with 422 and the rows kept; after the
 // Draw, or when the list lacks a joined name, it is 409; nothing changes.
 func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +65,8 @@ func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 	// Everything is checked on the stored Session, not on the page the
 	// Organizer saw.
 	confirmed := r.PostForm["affected"]
-	var joined, reset []Participant
+	var joined []Participant
+	var reset []string
 	var added, removed []string
 	drawn, err := a.submit(sess.Hash, func(s *Session) error {
 		joined, reset, added, removed = nil, nil, nil, nil
@@ -103,7 +105,7 @@ func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 		for _, name := range affected {
 			p := s.participantNamed(name)
 			p.Submitted = false
-			reset = append(reset, *p)
+			reset = append(reset, name)
 		}
 		return nil
 	})
@@ -124,13 +126,14 @@ func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 	default:
 		// The names are saved: attempt every email even if one fails.
 		var errs []error
-		if len(added) > 0 {
-			for _, p := range joined {
-				errs = append(errs, a.notifyNamesAdded(sess, p, added))
+		for _, p := range joined {
+			var gone []string // removed names, only for those who lost Exclusions
+			if slices.Contains(reset, p.Name) {
+				gone = removed
 			}
-		}
-		for _, p := range reset {
-			errs = append(errs, a.notifyExclusionsReset(sess, p, removed))
+			if len(added) > 0 || gone != nil {
+				errs = append(errs, a.notifyNamesChanged(sess, p, added, gone))
+			}
 		}
 		errs = append(errs, a.sendDrawEmails(drawn))
 		if err := errors.Join(errs...); err != nil {

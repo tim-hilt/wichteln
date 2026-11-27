@@ -85,26 +85,24 @@ func (a *app) sendDrawEmails(s *Session) error {
 	return errors.Join(errs...)
 }
 
-// notifyNamesAdded tells a joined Participant, in their language (the
-// Session's if they have made no Submission yet), which names were added and
-// links their Personal link, where they can still change their Exclusions.
-func (a *app) notifyNamesAdded(s Session, p Participant, added []string) error {
+// notifyNamesChanged tells a joined Participant, in their language (the
+// Session's if they have made no Submission yet), about one Save in a single
+// email linking their Personal link: which names were added (they can still
+// change their Exclusions) and, if non-empty, which names were removed so that
+// they lost Exclusions and must confirm their Submission again.
+func (a *app) notifyNamesChanged(s Session, p Participant, added, removed []string) error {
 	if p.Lang == "" {
 		p.Lang = s.Lang
 	}
 	t := catalog[p.Lang]
-	return a.send(p, t["names_added_subject"], mailView{T: t, Intro: fmt.Sprintf(t["names_added_intro"], strings.Join(added, ", ")),
-		Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
-}
-
-// notifyExclusionsReset tells a Participant, in their language, that removing
-// names made them lose Exclusions and that they must confirm their Submission
-// again on their Personal link.
-func (a *app) notifyExclusionsReset(s Session, p Participant, removed []string) error {
-	if p.Lang == "" {
-		p.Lang = s.Lang
+	var subject, intro string
+	switch {
+	case len(removed) == 0:
+		subject, intro = t["names_added_subject"], fmt.Sprintf(t["names_added_intro"], strings.Join(added, ", "))
+	case len(added) == 0:
+		subject, intro = t["exclusions_reset_subject"], fmt.Sprintf(t["exclusions_reset_intro"], strings.Join(removed, ", "))
+	default:
+		subject, intro = t["names_changed_subject"], fmt.Sprintf(t["names_changed_intro"], strings.Join(added, ", "), strings.Join(removed, ", "))
 	}
-	t := catalog[p.Lang]
-	return a.send(p, t["exclusions_reset_subject"], mailView{T: t, Intro: fmt.Sprintf(t["exclusions_reset_intro"], strings.Join(removed, ", ")),
-		Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
+	return a.send(p, subject, mailView{T: t, Intro: intro, Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
 }

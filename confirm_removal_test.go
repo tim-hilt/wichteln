@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -97,5 +98,55 @@ func TestRemovalConfirmationAndEmailInGerman(t *testing.T) {
 	// Ben's last Submission was in English.
 	if m := c.mailer.sent[before]; !strings.Contains(m.subject, "Secret Santa") {
 		t.Errorf("email not in Ben's language: %+v", m)
+	}
+}
+
+func TestSaveThatAddsAndResetsSendsOneCombinedEmailToTheAffectedParticipant(t *testing.T) {
+	for lang, want := range map[string][]string{"en": {"Hello ", "Emil", "Dora", "again"}, "de": {"Hallo ", "Emil", "Dora", "erneut"}} {
+		t.Run(lang, func(t *testing.T) {
+			c := newClient(t, t.TempDir())
+			session, p := openSession(t, c)
+			saveNames(c, session, "en", "Anna", "Ben", "Cleo", "Dora", "Eve")
+			c.do("POST", p["Anna"], lang, c.personalForm(p["Anna"], "a", "Ben", "Cleo"))
+			c.do("POST", p["Ben"], lang, c.personalForm(p["Ben"], "b", "Anna", "Cleo"))
+			// Only Emil would be left for both Anna and Ben, so someone loses Exclusions.
+			names := []string{"Anna", "Ben", "Cleo", "Emil"}
+			var affected []string
+			for _, m := range regexp.MustCompile(`name="affected" value="(\w+)"`).FindAllStringSubmatch(saveNames(c, session, "en", names...).Body.String(), -1) {
+				affected = append(affected, m[1])
+			}
+			if len(affected) != 1 || affected[0] != "Anna" && affected[0] != "Ben" {
+				t.Fatalf("affected %v", affected)
+			}
+			before := len(c.mailer.sent)
+			if rec := confirmNames(c, session, "en", affected, names...); rec.Code != http.StatusSeeOther {
+				t.Fatalf("status %d:\n%s", rec.Code, rec.Body.String())
+			}
+			mails := map[string][]sentMail{}
+			for _, m := range c.mailer.sent[before:] {
+				mails[m.to] = append(mails[m.to], m)
+			}
+			if len(mails) != 3 {
+				t.Fatalf("want an email each to Anna, Ben, Cleo: %+v", mails)
+			}
+			for to, ms := range mails {
+				if len(ms) != 1 {
+					t.Errorf("%d emails to %s", len(ms), to)
+				}
+			}
+			// Only the affected one is told about Dora's removal.
+			for name, to := range map[string]string{"Anna": "anna@x.de", "Ben": "ben@x.de", "Cleo": "cleo@x.de"} {
+				body := mails[to][0].body
+				if !strings.Contains(body, "Emil") || strings.Contains(body, "Dora") != (name == affected[0]) {
+					t.Errorf("email to %s:\n%s", name, body)
+				}
+			}
+			combined := mails[strings.ToLower(affected[0])+"@x.de"][0]
+			for _, w := range append(want, affected[0], "http://example.test"+p[affected[0]]) {
+				if !strings.Contains(combined.body, w) || !strings.Contains(combined.html, w) {
+					t.Errorf("combined email lacks %q:\n%s", w, combined.body)
+				}
+			}
+		})
 	}
 }
