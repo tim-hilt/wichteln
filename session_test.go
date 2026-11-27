@@ -179,7 +179,7 @@ func TestSessionPageShowsStatusesAndNoEmailAddresses(t *testing.T) {
 			t.Errorf("session page missing %q:\n%s", want, page)
 		}
 	}
-	if strings.Contains(page, "@x.de") || strings.Contains(page, `name="email"`) || strings.Contains(page, `<input name="name"`) {
+	if strings.Contains(page, "@x.de") || strings.Contains(page, `name="email"`) || strings.Contains(page, `<input name="name" value="Ben"`) {
 		t.Errorf("session page shows or asks emails, or is editable:\n%s", page)
 	}
 }

@@ -15,7 +15,7 @@ const minParticipants = 3
 type rowView struct {
 	T           Messages
 	Me          bool // the Organizer's own row: labelled, not removable
-	Fixed       bool // an existing name of the edit form: shown, but neither editable nor removable
+	Fixed       bool // a joined name of the edit form: shown, but neither editable nor removable
 	Name, Email string
 }
 
@@ -62,11 +62,11 @@ func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, 
 	})
 }
 
-// existingRows returns one Fixed row per name of sess.
+// existingRows returns one row per name of sess; joined names are Fixed.
 func existingRows(sess Session) []rowView {
 	var rows []rowView
 	for i, p := range sess.Participants {
-		rows = append(rows, rowView{Me: i == 0, Fixed: true, Name: p.Name})
+		rows = append(rows, rowView{Me: i == 0, Fixed: p.joined(), Name: p.Name})
 	}
 	return rows
 }

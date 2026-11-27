@@ -82,7 +82,7 @@ func TestSaveValidationErrorsKeepRowsAndChangeNothing(t *testing.T) {
 			if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, tt.want) {
 				t.Fatalf("status %d, want %q in:\n%s", rec.Code, tt.want, body)
 			}
-			if !strings.Contains(body, `name="name" value="Ben"`) || !strings.Contains(body, `value="`+strings.TrimSpace(tt.names[len(tt.names)-1])+`"`) {
+			if !strings.Contains(body, `value="Ben"`) || !strings.Contains(body, `value="`+strings.TrimSpace(tt.names[len(tt.names)-1])+`"`) {
 				t.Errorf("entered rows not kept:\n%s", body)
 			}
 			if page := c.do("GET", join, "en", nil).Body.String(); strings.Contains(page, "Dora") || strings.Contains(page, "BEN") {
@@ -102,18 +102,6 @@ func TestSaveAfterDrawIsConflictAndChangesNothing(t *testing.T) {
 	}
 	if strings.Contains(c.do("GET", p["Ben"], "en", nil).Body.String(), "Dora") || len(c.mailer.sent) != before {
 		t.Error("Save after the Draw changed something")
-	}
-}
-
-func TestSaveRejectsListMissingAnExistingName(t *testing.T) {
-	c := newClient(t, t.TempDir())
-	session, join := openJoinSession(t, c)
-	if rec := saveNames(c, session, "en", "Anna", "Cleo", "Dora"); rec.Code != http.StatusConflict {
-		t.Errorf("status %d", rec.Code)
-	}
-	page := c.do("GET", join, "en", nil).Body.String()
-	if !strings.Contains(page, "Ben") || strings.Contains(page, "Dora") {
-		t.Errorf("rejected Save changed names:\n%s", page)
 	}
 }
 

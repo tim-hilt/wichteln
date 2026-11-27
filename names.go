@@ -8,18 +8,21 @@ import (
 	"strings"
 )
 
-// errNameMissing is returned from a store update when the posted list lacks
-// a name of the Session. Removing names is not supported yet.
-var errNameMissing = errors.New("name missing from list")
+// errJoinedNameMissing is returned from a store update when the posted list
+// lacks a joined name of the Session: joined names, the Organizer included,
+// can't be removed.
+var errJoinedNameMissing = errors.New("joined name missing from list")
 
-// addNames saves the edit form of the Session page. It posts the complete
-// list of names; the ones not in the Session yet are appended after the
-// existing ones, which keep their order (the Organizer stays first). Every
-// joined Participant is then emailed the added names; nobody is un-submitted,
-// and as the new Participants have not submitted, an Add never Draws.
+// saveNames saves the edit form of the Session page. It posts the complete
+// list of names, which Add and Remove apply together: names not in the
+// Session yet are appended after the existing ones, which keep their order
+// (the Organizer stays first); unjoined names missing from the list are
+// removed and stripped from everyone's Exclusions. Every joined Participant
+// is emailed the added names; nobody is un-submitted. An Add never Draws, a
+// Remove of the last Participant who has not submitted does.
 // Invalid names re-render the page with 422 and the rows kept; after the
-// Draw or when the list lacks an existing name it is 409; nothing changes.
-func (a *app) addNames(w http.ResponseWriter, r *http.Request) {
+// Draw, or when the list lacks a joined name, it is 409; nothing changes.
+func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 	sess, ok, err := a.store.Load(r.PathValue("hash"))
 	if err != nil {
 		internalError(w)
@@ -48,19 +51,28 @@ func (a *app) addNames(w http.ResponseWriter, r *http.Request) {
 
 	// Everything is checked on the stored Session, not on the page the
 	// Organizer saw.
-	var joined []Participant // who is told, as of before the change
+	var joined []Participant
 	var added []string
-	err = a.store.Update(sess.Hash, func(s *Session) error {
-		if s.Drawn() {
-			return errAlreadyDrawn
-		}
+	drawn, err := a.submit(sess.Hash, func(s *Session) error {
+		var removed []string
 		joined, added = nil, nil
+		kept := s.Participants[:0]
 		for _, p := range s.Participants {
 			switch {
-			case !slices.Contains(names, p.Name):
-				return errNameMissing
+			case slices.Contains(names, p.Name):
+				kept = append(kept, p)
 			case p.joined():
-				joined = append(joined, p)
+				return errJoinedNameMissing
+			default:
+				removed = append(removed, p.Name)
+			}
+		}
+		s.Participants = kept
+		for i := range s.Participants {
+			p := &s.Participants[i]
+			p.Exclusions = slices.DeleteFunc(p.Exclusions, func(name string) bool { return slices.Contains(removed, name) })
+			if p.joined() {
+				joined = append(joined, *p)
 			}
 		}
 		for _, name := range names {
@@ -74,7 +86,9 @@ func (a *app) addNames(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		http.NotFound(w, r)
-	case errors.Is(err, errAlreadyDrawn), errors.Is(err, errNameMissing):
+	case errors.Is(err, errJoinedNameMissing):
+		http.Error(w, messagesFor(r)["err_name_joined"], http.StatusConflict)
+	case errors.Is(err, errAlreadyDrawn), errors.Is(err, ErrNoDraw):
 		http.Error(w, "names cannot be changed", http.StatusConflict)
 	case err != nil:
 		internalError(w)
@@ -86,6 +100,7 @@ func (a *app) addNames(w http.ResponseWriter, r *http.Request) {
 				errs = append(errs, a.notifyNamesAdded(sess, p, added))
 			}
 		}
+		errs = append(errs, a.sendDrawEmails(drawn))
 		if err := errors.Join(errs...); err != nil {
 			internalError(w)
 			return
@@ -99,7 +114,13 @@ func (a *app) addNames(w http.ResponseWriter, r *http.Request) {
 func editedRows(sess Session, names []string) []rowView {
 	rows := make([]rowView, len(names))
 	for i, name := range names {
-		rows[i] = rowView{Me: name == sess.organizer().Name, Fixed: sess.participantNamed(name) != nil, Name: name}
+		rows[i] = rowView{Me: name == sess.organizer().Name, Fixed: joinedIn(sess, name), Name: name}
 	}
 	return rows
+}
+
+// joinedIn reports whether sess has a joined Participant of that name.
+func joinedIn(sess Session, name string) bool {
+	p := sess.participantNamed(name)
+	return p != nil && p.joined()
 }

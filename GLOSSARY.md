@@ -42,6 +42,10 @@ _Avoid_: Reset, unclaim
 The **Organizer** appending a new name to a **Session** before the **Draw**. Applied with **Save** on the Session page; the name appears on the **Join link** page at once, and every joined **Participant** is emailed. An Add never starts the **Draw**.
 _Avoid_: Invite
 
+**Remove**:
+The **Organizer** deleting a name that has not been joined from a **Session** before the **Draw**. Joined names and the **Organizer** can't be removed; **Release** a joined name first. Save applies Add and Remove together; the name is stripped from everyone's **Exclusions** without notice.
+_Avoid_: Delete, Kick
+
 ## Wishes and drawing
 
 **Wish**:

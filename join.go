@@ -2,11 +2,20 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 )
 
 // errNameTaken is returned from a store update that finds the name joined.
 var errNameTaken = errors.New("name already joined")
+
+// errNameGone is returned from a store update that finds the name removed.
+var errNameGone = errors.New("name not in session")
+
+// notInSession is the message for a name that is not (or no longer) in the Session.
+func notInSession(r *http.Request, name string) string {
+	return fmt.Sprintf(messagesFor(r)["err_not_in_session"], name)
+}
 
 // findByJoinLink returns the Session behind a Join link hash, or writes the
 // 404 / 500 response and returns ok=false.
@@ -29,11 +38,16 @@ func (a *app) joinPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if p := sess.participantNamed(r.URL.Query().Get("name")); p != nil && !p.joined() && !sess.Drawn() {
+	name := r.URL.Query().Get("name")
+	p := sess.participantNamed(name)
+	switch {
+	case p != nil && !p.joined() && !sess.Drawn():
 		renderJoinForm(w, r, http.StatusOK, sess, Participant{Name: p.Name}, nil)
-		return
+	case p == nil && r.URL.Query().Has("name"):
+		renderJoinSelection(w, r, http.StatusOK, sess, notInSession(r, name))
+	default:
+		renderJoinSelection(w, r, http.StatusOK, sess, "")
 	}
-	renderJoinSelection(w, r, http.StatusOK, sess, "")
 }
 
 // submitJoin Joins the name sent in the "name" field with the first
@@ -56,7 +70,11 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	}
 	t := messagesFor(r)
 	name := r.PostForm.Get("name")
-	if p := sess.participantNamed(name); p == nil || p.joined() {
+	switch p := sess.participantNamed(name); {
+	case p == nil:
+		renderJoinSelection(w, r, http.StatusConflict, sess, notInSession(r, name))
+		return
+	case p.joined():
 		renderJoinSelection(w, r, http.StatusConflict, sess, t["err_name_taken"])
 		return
 	}
@@ -73,7 +91,10 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	}
 	drawn, err := a.submit(sess.Hash, func(s *Session) error {
 		p := s.participantNamed(me.Name)
-		if p == nil || p.joined() {
+		switch {
+		case p == nil:
+			return errNameGone
+		case p.joined():
 			return errNameTaken
 		}
 		*p = me
@@ -82,6 +103,8 @@ func (a *app) submitJoin(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, errAlreadyDrawn):
 		renderJoinSelection(w, r, http.StatusConflict, sess, "")
+	case errors.Is(err, errNameGone):
+		renderJoinSelection(w, r, http.StatusConflict, sess, notInSession(r, me.Name))
 	case errors.Is(err, errNameTaken):
 		renderJoinSelection(w, r, http.StatusConflict, sess, t["err_name_taken"])
 	case errors.Is(err, ErrNoDraw):
