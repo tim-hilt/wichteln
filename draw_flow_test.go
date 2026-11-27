@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -103,9 +104,10 @@ func TestSimultaneousLastSubmissionsDrawOnce(t *testing.T) {
 	_, p := openSession(t, c)
 	before := len(c.mailer.sent)
 	codes := make([]int, 2)
+	forms := []url.Values{c.personalForm(p["Anna"], "a"), c.personalForm(p["Anna"], "a")} // built up front: a form fetched after the draw has no email field
 	var wg sync.WaitGroup
 	for i := range codes {
-		wg.Go(func() { codes[i] = c.do("POST", p["Anna"], "en", c.personalForm(p["Anna"], "a")).Code })
+		wg.Go(func() { codes[i] = c.do("POST", p["Anna"], "en", forms[i]).Code })
 	}
 	wg.Wait()
 	if drawMails := len(c.mailer.sent) - before; drawMails != 3 {
