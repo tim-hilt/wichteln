@@ -5,7 +5,7 @@ A self-hosted Secret Santa app: a group of people secretly draws who gives a pre
 ## People
 
 **Organizer**:
-The **Participant** who created a **Session** and named all its **Participants**. The Organizer is always also a Participant, and never sees the other Participants' email addresses.
+The **Participant** who created a **Session**, names its **Participants** and can **Add** more names later. The Organizer is always also a Participant, and never sees the other Participants' email addresses.
 _Avoid_: Admin, owner, host
 
 **Participant**:
@@ -37,6 +37,10 @@ _Avoid_: Register, sign up
 **Release**:
 The **Organizer** undoing a **Join** before the **Draw**, so that the name can be joined again.
 _Avoid_: Reset, unclaim
+
+**Add**:
+The **Organizer** appending a new name to a **Session** before the **Draw**. Applied with **Save** on the Session page; the name appears on the **Join link** page at once, and every joined **Participant** is emailed. An Add never starts the **Draw**.
+_Avoid_: Invite
 
 ## Wishes and drawing
 

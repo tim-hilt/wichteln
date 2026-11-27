@@ -10,11 +10,12 @@ import (
 // minParticipants keeps the Draw secret: with fewer, assignments are guessable.
 const minParticipants = 3
 
-// rowView is one Participant row of the creation form. Only the Organizer's
-// row (Me) has an Email.
+// rowView is one Participant row of the creation or edit form. Only the
+// Organizer's row (Me) in the creation form has an Email.
 type rowView struct {
 	T           Messages
 	Me          bool // the Organizer's own row: labelled, not removable
+	Fixed       bool // an existing name of the edit form: shown, but neither editable nor removable
 	Name, Email string
 }
 
@@ -42,12 +43,32 @@ func (a *app) session(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		internalError(w)
 	case ok:
-		render(w, http.StatusOK, "session.html", map[string]any{
-			"T": messagesFor(r), "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash,
-		})
+		a.renderSession(w, r, http.StatusOK, sess, existingRows(sess), nil)
 	default:
 		renderForm(w, r, http.StatusOK, hash, []rowView{{Me: true}}, nil)
 	}
+}
+
+// renderSession shows the status page of sess with the edit form filled with
+// rows and the messages for errKeys above it.
+func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, sess Session, rows []rowView, errKeys []string) {
+	t := messagesFor(r)
+	for i := range rows {
+		rows[i].T = t
+	}
+	render(w, status, "session.html", map[string]any{
+		"T": t, "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash,
+		"Rows": rows, "Errors": errorTexts(t, errKeys),
+	})
+}
+
+// existingRows returns one Fixed row per name of sess.
+func existingRows(sess Session) []rowView {
+	var rows []rowView
+	for i, p := range sess.Participants {
+		rows = append(rows, rowView{Me: i == 0, Fixed: true, Name: p.Name})
+	}
+	return rows
 }
 
 // participantRow serves an empty row for HTMX to append to the creation form.
@@ -139,34 +160,46 @@ func rowsFromForm(r *http.Request) []rowView {
 	return rows
 }
 
-// validate returns the message keys of all rule violations in the rows.
+// validate returns the message keys of all rule violations in the creation
+// rows: the name rules plus the Organizer's email. Only the Organizer gives
+// an email; the others do so when they join.
 func validate(rows []rowView) []string {
+	names := make([]string, len(rows))
+	for i, row := range rows {
+		names[i] = row.Name
+	}
+	errKeys := nameErrors(names)
+	if rows[0].Me && !plausibleEmail(rows[0].Email) {
+		errKeys = append(errKeys, "err_bad_email")
+	}
+	return errKeys
+}
+
+// nameErrors returns the message keys of all rules the (trimmed) names of a
+// Session violate: at least minParticipants, none empty, none equal to
+// another regardless of case. Creation and the edit form share them.
+func nameErrors(names []string) []string {
 	var errKeys []string
-	if len(rows) < minParticipants {
+	if len(names) < minParticipants {
 		errKeys = append(errKeys, "err_too_few")
 	}
 	seen := map[string]bool{}
-	emptyName, dupName, badEmail := false, false, false
-	for _, row := range rows {
-		key := strings.ToLower(row.Name)
+	emptyName, dupName := false, false
+	for _, name := range names {
+		key := strings.ToLower(name)
 		switch {
-		case row.Name == "":
+		case name == "":
 			emptyName = true
 		case seen[key]:
 			dupName = true
 		}
 		seen[key] = true
-		// Only the Organizer gives an email; the others do so when they join.
-		badEmail = badEmail || row.Me && !plausibleEmail(row.Email)
 	}
 	if emptyName {
 		errKeys = append(errKeys, "err_empty_name")
 	}
 	if dupName {
 		errKeys = append(errKeys, "err_dup_name")
-	}
-	if badEmail {
-		errKeys = append(errKeys, "err_bad_email")
 	}
 	return errKeys
 }
@@ -183,12 +216,17 @@ func plausibleEmail(s string) bool {
 
 func renderForm(w http.ResponseWriter, r *http.Request, status int, hash string, rows []rowView, errKeys []string) {
 	t := messagesFor(r)
-	var errs []string
-	for _, k := range errKeys {
-		errs = append(errs, t[k])
-	}
 	for i := range rows {
 		rows[i].T = t
 	}
-	render(w, status, "session_form.html", map[string]any{"T": t, "Hash": hash, "Rows": rows, "Errors": errs})
+	render(w, status, "session_form.html", map[string]any{"T": t, "Hash": hash, "Rows": rows, "Errors": errorTexts(t, errKeys)})
+}
+
+// errorTexts returns the texts of the message keys.
+func errorTexts(t Messages, keys []string) []string {
+	var texts []string
+	for _, k := range keys {
+		texts = append(texts, t[k])
+	}
+	return texts
 }

@@ -84,3 +84,15 @@ func (a *app) sendDrawEmails(s *Session) error {
 	}
 	return errors.Join(errs...)
 }
+
+// notifyNamesAdded tells a joined Participant, in their language (the
+// Session's if they have made no Submission yet), which names were added and
+// links their Personal link, where they can still change their Exclusions.
+func (a *app) notifyNamesAdded(s Session, p Participant, added []string) error {
+	if p.Lang == "" {
+		p.Lang = s.Lang
+	}
+	t := catalog[p.Lang]
+	return a.send(p, t["names_added_subject"], mailView{T: t, Intro: fmt.Sprintf(t["names_added_intro"], strings.Join(added, ", ")),
+		Links: []mailLink{{t["personal_link"], a.baseURL + "/" + p.Hash}}})
+}

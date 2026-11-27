@@ -27,5 +27,15 @@
       </li>
       {{end}}
     </ul>
+    {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
+    <form method="post" action="/session/{{.Session.Hash}}/names">
+      <div id="rows" class="participant-grid">
+        {{range .Rows}}{{template "participant_row.html" .}}{{end}}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" hx-get="/participant-row" hx-target="#rows" hx-swap="beforeend">+ {{.T.add_participant}}</button>
+        <button>{{.T.save_names}}</button>
+      </div>
+    </form>
     {{end}}
 {{template "footer" .}}
