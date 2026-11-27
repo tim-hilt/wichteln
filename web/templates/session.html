@@ -3,10 +3,7 @@
     <p class="success">🎉 {{.T.drawn}}</p>
     {{else}}
     {{if .Session.JoinHash}}
-    <div class="field">
-      <span class="label">{{.T.join_link}}</span>
-      <code>{{.JoinURL}}</code>
-    </div>
+    <p><button type="button" class="secondary" data-url="{{.JoinURL}}" hx-on:click="navigator.clipboard.writeText(this.dataset.url); const l = this.textContent; this.textContent = '{{.T.copied}}'; setTimeout(() => this.textContent = l, 2000)">{{.T.copy_join_link}}</button></p>
     {{end}}
     <h2>{{.T.participants}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}

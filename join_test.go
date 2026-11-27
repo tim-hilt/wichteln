@@ -205,3 +205,15 @@ func TestJoinEmailsOrganizerTheJoinedName(t *testing.T) {
 		t.Fatalf("want one mail naming Ben to the Organizer: %+v", got)
 	}
 }
+
+func TestSessionPageOffersCopyJoinLinkButton(t *testing.T) {
+	c := newClient(t, t.TempDir())
+	session, join := openJoinSession(t, c)
+	body := c.do("GET", session, "en", nil).Body.String()
+	if !strings.Contains(body, "Copy join link") || strings.Contains(body, "<code>") {
+		t.Errorf("want copy button, no verbatim link:\n%s", body)
+	}
+	if !strings.Contains(body, join) {
+		t.Errorf("copy button lacks join link %q", join)
+	}
+}
