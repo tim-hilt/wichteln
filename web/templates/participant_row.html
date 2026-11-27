@@ -1,11 +1,20 @@
 {{if .Fixed}}<div class="row">
   <input type="hidden" name="name" value="{{.Name}}">
-  <span>{{.Name}}</span>
-  {{if .Me}}<span class="badge done">{{.T.me}}</span>{{end}}
+  <strong>{{.Name}}</strong>
+  <span class="row-status">{{template "status" .}}</span>
+  <span class="row-actions">
+    {{if .Joined}}<button class="secondary" formaction="/session/{{.Session}}/resend" name="participant" value="{{.Name}}">{{.T.resend}}</button>{{end}}
+    {{if and .Joined (not .Me)}}<button class="secondary" formaction="/session/{{.Session}}/release" name="participant" value="{{.Name}}">{{.T.release}}</button>{{end}}
+    {{if not .Joined}}<button type="button" class="secondary icon" aria-label="{{.T.remove}}" title="{{.T.remove}}" hx-on:click="this.closest('.row').remove()">✕</button>{{end}}
+  </span>
 </div>
 {{else}}<div class="row">
-  <input name="name" value="{{.Name}}" placeholder="{{.T.name}}" aria-label="{{.T.name}}">
-  {{if .Me}}<input name="email" type="email" value="{{.Email}}" placeholder="{{.T.email}}" aria-label="{{.T.email}}">{{end}}
-  {{if .Me}}<span class="badge done">{{.T.me}}</span>{{else}}<button type="button" class="secondary icon" aria-label="{{.T.remove}}" title="{{.T.remove}}" hx-on:click="this.closest('.row').remove()">✕</button>{{end}}
+  <span class="row-fields">
+    <input name="name" value="{{.Name}}" placeholder="{{.T.name}}" aria-label="{{.T.name}}">
+    {{if .Me}}<input name="email" type="email" value="{{.Email}}" placeholder="{{.T.email}}" aria-label="{{.T.email}}">{{end}}
+  </span>
+  <span class="row-status">{{template "status" .}}{{if .Me}}<span class="badge done">{{.T.me}}</span>{{end}}</span>
+  <span class="row-actions">{{if not .Me}}<button type="button" class="secondary icon" aria-label="{{.T.remove}}" title="{{.T.remove}}" hx-on:click="this.closest('.row').remove()">✕</button>{{end}}</span>
 </div>
 {{end}}
+{{define "status"}}{{if .Status}}<span class="badge{{if eq .Status "status_joined"}} done{{end}}">{{index .T .Status}}</span>{{end}}{{end}}

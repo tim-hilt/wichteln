@@ -27,12 +27,12 @@ func TestSaveRemovesUnjoinedNamesAndRenames(t *testing.T) {
 	}
 }
 
-func TestSaveOffersUnjoinedNamesEditableAndRemovable(t *testing.T) {
+func TestSaveOffersUnjoinedNamesRemovableButNotEditable(t *testing.T) {
 	c := newClient(t, t.TempDir())
 	session, _ := openJoinSession(t, c)
 	page := c.do("GET", session, "en", nil).Body.String()
-	if !strings.Contains(page, `<input name="name" value="Ben"`) || !strings.Contains(page, `aria-label="Remove"`) {
-		t.Errorf("Ben not editable and removable:\n%s", page)
+	if !strings.Contains(page, `type="hidden" name="name" value="Ben"`) || strings.Contains(page, `<input name="name"`) || !strings.Contains(page, `aria-label="Remove"`) {
+		t.Errorf("Ben editable or not removable:\n%s", page)
 	}
 	if !strings.Contains(page, `type="hidden" name="name" value="Anna"`) {
 		t.Errorf("Anna not fixed:\n%s", page)

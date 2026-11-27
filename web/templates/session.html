@@ -9,24 +9,6 @@
     </div>
     {{end}}
     <h2>{{.T.participants}}</h2>
-    <ul class="participants">
-      {{range .Session.Participants}}
-      <li>
-        <div class="participant-head">
-          <strong>{{.Name}}</strong>
-          {{if not .Hash}}<span class="badge">{{$.T.status_not_joined}}</span>{{else if .Submitted}}<span class="badge done">{{$.T.status_joined}}</span>{{else}}<span class="badge">{{$.T.status_pending}}</span>{{end}}
-          {{if .Hash}}<form method="post" action="/session/{{$.Session.Hash}}/resend">
-            <input type="hidden" name="participant" value="{{.Name}}">
-            <button class="secondary">{{$.T.resend}}</button>
-          </form>{{end}}
-          {{if and .Hash (not .Organizer)}}<form method="post" action="/session/{{$.Session.Hash}}/release">
-            <input type="hidden" name="participant" value="{{.Name}}">
-            <button class="secondary">{{$.T.release}}</button>
-          </form>{{end}}
-        </div>
-      </li>
-      {{end}}
-    </ul>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/session/{{.Session.Hash}}/names">
       <div id="rows" class="participant-grid">

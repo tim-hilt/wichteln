@@ -20,7 +20,7 @@ func saveNames(c *client, session, lang string, names ...string) *httptest.Respo
 
 // order returns the names in the order the Session page lists them.
 func order(page string, names ...string) []string {
-	re := regexp.MustCompile(`<strong>(` + strings.Join(names, "|") + `)</strong>`)
+	re := regexp.MustCompile(`name="name" value="(` + strings.Join(names, "|") + `)"`)
 	var got []string
 	for _, m := range re.FindAllStringSubmatch(page, -1) {
 		got = append(got, m[1])

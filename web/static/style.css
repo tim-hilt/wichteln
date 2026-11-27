@@ -103,10 +103,32 @@ button.icon { padding: .5rem .75rem; }
 .inline input { flex: 1 1 12rem; width: auto; }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
 
-/* Creation form: one row per name; only the Organizer's row has an email */
-.participant-grid { display: grid; gap: .5rem; }
-.participant-grid .row { display: flex; gap: .5rem; align-items: center; }
-.participant-grid .row input { flex: 1; min-width: 0; }
+/* Participant rows: name | status | actions, columns aligned across rows;
+   only the Organizer's row in the creation form has an email */
+.participant-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: .75rem; }
+.participant-grid .row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 3.5rem;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.participant-grid .row:first-child { border-top: 1px solid var(--border); }
+.row-fields { display: flex; gap: .5rem; min-width: 0; }
+.row-fields input { flex: 1; }
+.row-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+.row-status:empty { display: none; }
+@media (width > 40rem) { .row:has(> .row-status:empty) > .row-fields { grid-column: span 2; } }
+/* Narrow screens: status below the name; two buttons get their own line */
+@media (max-width: 40rem) {
+  .participant-grid { grid-template-columns: minmax(0, 1fr) auto; }
+  .row-status { grid-column: 1; grid-row: 2; }
+  .row-fields { grid-row: 1; }
+  .row-actions { grid-column: 2; grid-row: 1 / span 2; }
+  .row-actions:has(button:nth-child(2)) { grid-column: 1 / -1; grid-row: 3; margin-top: .5rem; }
+}
 
 /* Status page */
 .participants { list-style: none; padding: 0; display: grid; gap: .75rem; }
@@ -124,6 +146,7 @@ button.icon { padding: .5rem .75rem; }
 
 .badge {
   display: inline-block;
+  white-space: nowrap;
   padding: .125rem .625rem;
   font-size: .85rem;
   font-weight: 600;

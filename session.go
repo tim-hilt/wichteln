@@ -15,8 +15,11 @@ const minParticipants = 3
 type rowView struct {
 	T           Messages
 	Me          bool // the Organizer's own row: labelled, not removable
-	Fixed       bool // a joined name of the edit form: shown, but neither editable nor removable
+	Fixed       bool // a stored name of the edit form: shown, never editable
+	Joined      bool // the stored name has joined
 	Name, Email string
+	Session     string // hash of the Session, set on the edit form
+	Status      string // message key of the status badge of a stored name
 }
 
 // createSessionLink starts a new Session by redirecting to a fresh Session
@@ -60,7 +63,16 @@ func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, 
 	rows := make([]rowView, len(names))
 	for i, name := range names {
 		p := sess.participantNamed(name)
-		rows[i] = rowView{T: t, Me: name == sess.organizer().Name, Fixed: p != nil && p.joined(), Name: name}
+		rows[i] = rowView{T: t, Me: name == sess.organizer().Name, Fixed: p != nil, Joined: p != nil && p.joined(), Name: name, Session: sess.Hash}
+		switch {
+		case p == nil:
+		case !p.joined():
+			rows[i].Status = "status_not_joined"
+		case p.Submitted:
+			rows[i].Status = "status_joined"
+		default:
+			rows[i].Status = "status_pending"
+		}
 	}
 	render(w, status, "session.html", map[string]any{
 		"T": t, "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash,
