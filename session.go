@@ -77,7 +77,22 @@ func (a *app) renderSession(w http.ResponseWriter, r *http.Request, status int, 
 	render(w, status, "session.html", map[string]any{
 		"T": t, "Session": sess, "JoinURL": a.baseURL + "/join/" + sess.JoinHash,
 		"Rows": rows, "Errors": errorTexts(t, errKeys),
+		"Saved": savedText(r, t, map[string]string{"notified": t["saved_notified"]}),
 	})
+}
+
+// savedText returns the banner text confirming a successful save if r is the
+// redirect after one (its query has "saved"), else "". The value of "saved"
+// picks a detail to append, e.g. ?saved=email; unknown values add nothing.
+func savedText(r *http.Request, t Messages, details map[string]string) string {
+	q := r.URL.Query()
+	if !q.Has("saved") {
+		return ""
+	}
+	if detail, ok := details[q.Get("saved")]; ok {
+		return t["saved"] + " " + detail
+	}
+	return t["saved"]
 }
 
 // participantRow serves an empty row for HTMX to append to the creation form.

@@ -17,6 +17,7 @@
       <blockquote>{{.RecipientsWish}}</blockquote>
     </div>
     {{else}}
+    {{template "saved" .}}
     <form method="post">
       {{template "submission_fields" .}}
       <div class="actions"><button>{{.T.submit_wish}}</button></div>

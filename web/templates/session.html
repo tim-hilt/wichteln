@@ -5,6 +5,7 @@
     {{if .Session.JoinHash}}
     <p><button type="button" class="secondary" data-url="{{.JoinURL}}" hx-on:click="navigator.clipboard.writeText(this.dataset.url); const l = this.textContent; this.textContent = '{{.T.copied}}'; setTimeout(() => this.textContent = l, 2000)">{{.T.copy_join_link}}</button></p>
     {{end}}
+    {{template "saved" .}}
     <h2>{{.T.participants}}</h2>
     {{range .Errors}}<p class="error" role="alert">{{.}}</p>{{end}}
     <form method="post" action="/session/{{.Session.Hash}}/names">

@@ -117,6 +117,7 @@ func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 	default:
 		// The names are saved: attempt every email even if one fails.
 		var errs []error
+		query := "?saved"
 		for _, p := range joined {
 			var gone []string // removed names, only for those who lost Exclusions
 			if slices.Contains(reset, p.Name) {
@@ -124,6 +125,7 @@ func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 			}
 			if len(added) > 0 || gone != nil {
 				errs = append(errs, a.notifyNamesChanged(sess, p, added, gone))
+				query = "?saved=notified"
 			}
 		}
 		errs = append(errs, a.sendDrawEmails(drawn))
@@ -131,6 +133,6 @@ func (a *app) saveNames(w http.ResponseWriter, r *http.Request) {
 			internalError(w)
 			return
 		}
-		http.Redirect(w, r, "/session/"+sess.Hash, http.StatusSeeOther)
+		http.Redirect(w, r, "/session/"+sess.Hash+query, http.StatusSeeOther)
 	}
 }

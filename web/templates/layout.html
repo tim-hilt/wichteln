@@ -12,6 +12,10 @@
   <header><h1><a href="/">🎄 {{.T.title}}</a></h1></header>
   <main>
 {{end}}
+{{define "saved"}}{{with .Saved}}
+    <p class="success" role="status">✅ {{.}}</p>
+    <script>history.replaceState(null, "", location.pathname)</script>
+{{end}}{{end}}
 {{define "footer"}}  </main>
 </body>
 </html>

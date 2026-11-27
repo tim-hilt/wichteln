@@ -123,7 +123,7 @@ func TestSubmitStoresWishAndExclusionsAndMarksSubmitted(t *testing.T) {
 	p := map[string]string{"Anna": anna}
 
 	rec := c.do("POST", p["Anna"], "de", c.personalForm(p["Anna"], "Socken", "Ben"))
-	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != p["Anna"] {
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != p["Anna"]+"?saved" {
 		t.Fatalf("status %d, location %q", rec.Code, rec.Header().Get("Location"))
 	}
 

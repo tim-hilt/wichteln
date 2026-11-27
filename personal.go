@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -20,6 +21,9 @@ type personalView struct {
 	Wish   string
 	Others []otherView
 	Errors []string
+
+	// Saved is the banner text confirming a successful save, if any.
+	Saved string
 
 	// Organizer swaps the Join confirmation's text, as they didn't use the
 	// Join link and got no confirmation email.
@@ -132,7 +136,11 @@ func (a *app) submitPersonal(w http.ResponseWriter, r *http.Request) {
 			internalError(w)
 			return
 		}
-		http.Redirect(w, r, "/"+me.Hash, http.StatusSeeOther)
+		query := "?saved"
+		if emailChanged {
+			query = "?saved=email"
+		}
+		http.Redirect(w, r, "/"+me.Hash+query, http.StatusSeeOther)
 	}
 }
 
@@ -237,6 +245,7 @@ func submissionView(r *http.Request, sess Session, me Participant, errs []string
 func renderPersonal(w http.ResponseWriter, r *http.Request, status int, sess Session, me Participant, errs []string, joined bool) {
 	view := submissionView(r, sess, me, errs)
 	view.Joined = joined && !sess.Drawn()
+	view.Saved = savedText(r, view.T, map[string]string{"email": fmt.Sprintf(view.T["saved_email"], me.Email)})
 	if sess.Drawn() {
 		view.Drawn, view.Recipient = true, me.Recipient
 		view.RecipientsWish = sess.participantNamed(me.Recipient).Wish
